@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 class GenerateRequest(BaseModel):
     """Request model for generating text via Claude."""
     prompt: str = Field(..., description="The input prompt for generation.")
-    model: Optional[str] = Field("claude-3.5", description="The model version to use.")
+    model: Optional[str] = Field("claude-3-haiku-20240307", description="The model version to use.")
     stream: bool = Field(False, description="Whether to stream the response.")
     max_tokens: Optional[int] = Field(800, description="Maximum tokens to generate.")
     temperature: float = Field(0.0, description="Sampling temperature.")

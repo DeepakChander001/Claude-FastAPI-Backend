@@ -1,0 +1,61 @@
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "dev" ]
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Configure AWS Credentials (OIDC recommended)
+      # - name: Configure AWS Credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: arn:aws:iam::REPLACE_ME:role/github-actions-role
+      #     aws-region: us-east-1
+
+      # Login to ECR
+      # - name: Login to Amazon ECR
+      #   id: login-ecr
+      #   uses: aws-actions/amazon-ecr-login@v2
+
+      # Build and Push
+      # - name: Build, tag, and push image to Amazon ECR
+      #   env:
+      #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      #     ECR_REPOSITORY: claude-proxy
+      #     IMAGE_TAG: ${{ github.sha }}
+      #   run: |
+      #     docker build -f infra/docker/Dockerfile.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+      #     docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  deploy-ecs:
+    name: Deploy to ECS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Task Definition
+        env:
+          IMAGE_URI: REPLACE_ME_REGISTRY/claude-proxy:${{ github.sha }}
+        run: |
+          chmod +x infra/scripts/prepare_taskdef.sh
+          ./infra/scripts/prepare_taskdef.sh
+
+      # Deploy using aws-actions/amazon-ecs-deploy-task-definition
+      # - name: Deploy Amazon ECS task definition
+      #   uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      #   with:
+      #     task-definition: task_definition_rendered.json
+      #     service: claude-proxy-service
+      #     cluster: claude-proxy-cluster
+      #     wait-for-service-stability: true

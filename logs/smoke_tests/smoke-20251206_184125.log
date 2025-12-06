@@ -1,0 +1,10 @@
+===== Smoke Tests =====
+URL: http://localhost:8000
+Timestamp: 20251206_184125
+[Test 1] GET /health
+  PASS: {"status":"ok"}
+[Test 2] POST /api/enqueue
+  PASS: Response received
+===== Summary =====
+Passed: 2
+Failed: 0

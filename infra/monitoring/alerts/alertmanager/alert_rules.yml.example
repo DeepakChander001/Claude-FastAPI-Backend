@@ -1,0 +1,47 @@
+# Prometheus Alert Rules Example
+# ============================================================================
+groups:
+  - name: claude-proxy-alerts
+    rules:
+      # Latency SLO Breach
+      - alert: HighLatencyP95
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency exceeds 500ms"
+          description: "P95 latency is {{ $value }}s"
+
+      # Error Rate SLO Breach
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Error rate exceeds 1%"
+          description: "Current error rate is {{ $value | humanizePercentage }}"
+
+      # Error Budget Burn (Fast)
+      - alert: ErrorBudgetBurnFast
+        expr: |
+          (
+            1 - (sum(rate(http_requests_total{status!~"5.."}[1h])) / sum(rate(http_requests_total[1h])))
+          ) / (1 - 0.999) * 720 > 14.4
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Error budget burning too fast"
+          description: "At current rate, budget exhausts in < 1 hour"
+
+      # Queue Backlog
+      - alert: QueueBacklog
+        expr: aws_sqs_approximate_number_of_messages_visible > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SQS queue backlog growing"
+          description: "Queue has {{ $value }} pending messages"

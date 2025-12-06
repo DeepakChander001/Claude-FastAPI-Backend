@@ -1,0 +1,46 @@
+[
+    {
+        "AlarmName": "HighErrorRate-Canary",
+        "MetricName": "5xxErrorRate",
+        "Namespace": "AWS/ApplicationELB",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 1,
+        "Threshold": 1.0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Description": "Rollback if 5xx errors > 1%"
+    },
+    {
+        "AlarmName": "HighLatencyP95-Canary",
+        "MetricName": "TargetResponseTime",
+        "Namespace": "AWS/ApplicationELB",
+        "ExtendedStatistic": "p95",
+        "Period": 60,
+        "EvaluationPeriods": 1,
+        "Threshold": 2.0,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Description": "Rollback if P95 latency > 2s"
+    },
+    {
+        "AlarmName": "OldestMessageAgeStalled",
+        "MetricName": "ApproximateAgeOfOldestMessage",
+        "Namespace": "AWS/SQS",
+        "Statistic": "Maximum",
+        "Period": 300,
+        "EvaluationPeriods": 1,
+        "Threshold": 600,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Description": "Alert if messages are stuck for > 10 mins"
+    },
+    {
+        "AlarmName": "HighQueueDepth",
+        "MetricName": "ApproximateNumberOfMessagesVisible",
+        "Namespace": "AWS/SQS",
+        "Statistic": "Average",
+        "Period": 60,
+        "EvaluationPeriods": 3,
+        "Threshold": 1000,
+        "ComparisonOperator": "GreaterThanThreshold",
+        "Description": "Scale out or alert if queue depth is high"
+    }
+]

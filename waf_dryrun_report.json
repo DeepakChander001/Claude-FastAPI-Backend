@@ -1,0 +1,14 @@
+{
+  "total_requests": 4,
+  "rule_matches": {
+    "AWSManagedRulesCommonRuleSet": 0,
+    "AWSManagedRulesSQLiRuleSet": 0,
+    "AWSManagedRulesKnownBadInputsRuleSet": 0,
+    "RateLimitByIP": 0,
+    "GeoBlockList": 0
+  },
+  "top_ips": {
+    "192.168.1.1": 3,
+    "10.0.0.1": 1
+  }
+}

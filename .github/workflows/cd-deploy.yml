@@ -1,0 +1,62 @@
+name: CD Deploy (Terraform Apply)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to confirm deployment'
+        required: true
+        default: 'no'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    environment: production # Protect this environment with required reviewers!
+    if: github.event.inputs.confirm == 'yes'
+    defaults:
+      run:
+        working-directory: infra/terraform
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.5.0"
+
+    # ------------------------------------------------------------------------
+    # AWS Authentication (Placeholder)
+    # ------------------------------------------------------------------------
+    # - name: Configure AWS Credentials
+    #   uses: aws-actions/configure-aws-credentials@v4
+    #   with:
+    #     role-to-assume: arn:aws:iam::REPLACE_ME_ACCOUNT_ID:role/GitHubActionsRole
+    #     aws-region: us-east-1
+
+    # ------------------------------------------------------------------------
+    # Download Plan (Optional: Re-plan is safer if state changed)
+    # ------------------------------------------------------------------------
+    # - name: Download Plan Artifact
+    #   uses: actions/download-artifact@v4
+    #   with:
+    #     name: tfplan
+    #     path: infra/terraform
+
+    - name: Terraform Init
+      run: terraform init
+
+    # Re-running plan is often safer than relying on stale artifacts
+    - name: Terraform Plan
+      run: terraform plan -out=plan.tfplan
+
+    - name: Terraform Apply
+      # CAUTION: This applies changes to production!
+      # Ensure you have reviewed the plan in the previous step or workflow.
+      run: terraform apply -auto-approve plan.tfplan

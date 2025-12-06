@@ -1,0 +1,15 @@
+# ============================================================================
+# Backend Configuration Example
+# ============================================================================
+# Uncomment and configure for remote state storage.
+# DO NOT commit credentials to this file.
+
+# terraform {
+#   backend "s3" {
+#     bucket         = "REPLACE_ME_STATE_BUCKET"
+#     key            = "claude-proxy/terraform.tfstate"
+#     region         = "REPLACE_ME_REGION"
+#     dynamodb_table = "REPLACE_ME_LOCK_TABLE"
+#     encrypt        = true
+#   }
+# }

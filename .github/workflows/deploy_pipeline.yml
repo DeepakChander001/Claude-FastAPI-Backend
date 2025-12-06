@@ -1,0 +1,95 @@
+name: Deploy Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      live:
+        description: 'Execute live deployment'
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: REPLACE_ME_REGION
+  ECR_REPO: REPLACE_ME_ACCOUNT.dkr.ecr.REPLACE_ME_REGION.amazonaws.com/claude-proxy
+  CLUSTER_NAME: claude-proxy
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install & Test
+        run: |
+          pip install -r requirements.txt
+          python -m pytest tests/ -q
+
+      - name: Build Docker Image
+        id: build
+        run: |
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          IMAGE="${ECR_REPO}:${COMMIT_SHA}"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          docker build -t $IMAGE -f infra/docker/Dockerfile.prod .
+
+      - name: Security Scan
+        run: |
+          # pip-audit, bandit, etc.
+          echo "Security scans would run here"
+
+  deploy-staging:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Staging (Dry Run)
+        run: |
+          chmod +x infra/scripts/deploy_release.sh
+          ./infra/scripts/deploy_release.sh \
+            --env staging \
+            --image ${{ needs.build.outputs.image }} \
+            --strategy rolling
+
+  deploy-production:
+    needs: [build, deploy-staging]
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.event.inputs.environment == 'production'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Production
+        run: |
+          chmod +x infra/scripts/deploy_release.sh
+          if [ "${{ github.event.inputs.live }}" = "true" ]; then
+            CONFIRM=true ./infra/scripts/deploy_release.sh \
+              --env prod \
+              --image ${{ needs.build.outputs.image }} \
+              --strategy canary \
+              --live
+          else
+            ./infra/scripts/deploy_release.sh \
+              --env prod \
+              --image ${{ needs.build.outputs.image }} \
+              --strategy canary
+          fi

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """
     ANTHROPIC_API_KEY: Optional[str] = None
     USE_MOCK_CLIENT: bool = True
-    DEFAULT_MODEL: str = "claude-3.5"
+    DEFAULT_MODEL: str = "claude-3-haiku-20240307"
     
     # AWS Secrets Manager Configuration
     AWS_SECRETS_MANAGER_ENABLED: bool = False
@@ -28,6 +28,27 @@ class Settings(BaseSettings):
     # Database (Legacy/Fallback)
     DATABASE_URL: str = ""
 
+    # Security Configuration
+    AUTH_MODE: str = "api_key"  # api_key, jwt, none
+    ALLOWED_API_KEYS: str = ""  # Comma separated list
+    JWT_SECRET: str = "REPLACE_ME"
+    RATE_LIMIT_PER_MINUTE: int = 60
+    AUDIT_LOG_PATH: str = "logs/audit.log"
+
+    # Queue Configuration
+    QUEUE_MAX_ATTEMPTS: int = 3
+    QUEUE_DLQ_NAME: str = "dead_letter_queue"
+
+    # Observability Configuration
+    ENABLE_TRACING: bool = False
+    LOG_JSON: bool = True
+    TRACE_SAMPLING_RATE: float = 1.0
+
+    # Security Hardening
+    CSP_REPORT_ONLY: bool = True
+    HSTS_MAX_AGE: int = 31536000
+    SEC_SCAN_FAIL_ON_HIGH: bool = False
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     def load_from_aws_secrets(self, boto3_client: Optional[Any] = None) -> None:
@@ -42,13 +63,6 @@ class Settings(BaseSettings):
             secrets = get_secrets_from_aws(self.AWS_SECRETS_NAME, boto3_client)
             
             # Update settings if keys exist in the secret
-            # Example secret JSON:
-            # {
-            #   "ANTHROPIC_API_KEY": "sk-...",
-            #   "SUPABASE_URL": "https://...",
-            #   "SUPABASE_KEY": "eyJ..."
-            # }
-            
             if "ANTHROPIC_API_KEY" in secrets:
                 self.ANTHROPIC_API_KEY = secrets["ANTHROPIC_API_KEY"]
             if "SUPABASE_URL" in secrets:
@@ -56,4 +70,8 @@ class Settings(BaseSettings):
             if "SUPABASE_KEY" in secrets:
                 self.SUPABASE_KEY = secrets["SUPABASE_KEY"]
             
-            # Add other fields as needed
+            # Security Secrets
+            if "ALLOWED_API_KEYS" in secrets:
+                self.ALLOWED_API_KEYS = secrets["ALLOWED_API_KEYS"]
+            if "JWT_SECRET" in secrets:
+                self.JWT_SECRET = secrets["JWT_SECRET"]

@@ -1,0 +1,46 @@
+# ============================================================================
+# Route53 DNS Record - Example Template
+# ============================================================================
+# Creates an A record (alias) pointing to CloudFront distribution.
+# Replace all REPLACE_ME placeholders before applying.
+# ============================================================================
+
+variable "zone_id" {
+  description = "Route53 hosted zone ID"
+  type        = string
+  default     = "REPLACE_ME_ZONE_ID"
+}
+
+variable "domain_name" {
+  description = "Domain name to create"
+  type        = string
+  default     = "api.REPLACE_ME_DOMAIN.com"
+}
+
+variable "cloudfront_domain" {
+  description = "CloudFront distribution domain name"
+  type        = string
+  default     = "REPLACE_ME_CLOUDFRONT_DOMAIN.cloudfront.net"
+}
+
+variable "cloudfront_zone_id" {
+  description = "CloudFront zone ID (always Z2FDTNDATAQYW2)"
+  type        = string
+  default     = "Z2FDTNDATAQYW2"
+}
+
+resource "aws_route53_record" "cloudfront_alias" {
+  zone_id = var.zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = var.cloudfront_domain
+    zone_id                = var.cloudfront_zone_id
+    evaluate_target_health = false
+  }
+}
+
+output "fqdn" {
+  value = aws_route53_record.cloudfront_alias.fqdn
+}

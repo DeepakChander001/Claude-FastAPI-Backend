@@ -11,7 +11,7 @@ def test_generate_request_serialization():
         temperature=0.5,
         metadata={"user_id": "123"}
     )
-    json_output = req.json()
+    json_output = req.model_dump_json()
     assert "Hello" in json_output
     assert "claude-3.5" in json_output
 
@@ -23,7 +23,7 @@ def test_generate_response_serialization():
         model="claude-3.5",
         usage={"input": 10, "output": 5}
     )
-    json_output = res.json()
+    json_output = res.model_dump_json()
     assert "req_test" in json_output
     assert "World" in json_output
 
@@ -34,5 +34,5 @@ def test_status_response_serialization():
         status="running",
         created_at="2023-01-01T00:00:00Z"
     )
-    json_output = stat.json()
+    json_output = stat.model_dump_json()
     assert "running" in json_output

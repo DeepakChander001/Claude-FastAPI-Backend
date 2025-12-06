@@ -1,0 +1,53 @@
+name: CD Plan (Terraform)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "dev" ]
+
+permissions:
+  id-token: write # Required for OIDC
+  contents: read
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.5.0"
+
+    # ------------------------------------------------------------------------
+    # AWS Authentication (Placeholder)
+    # Recommended: Use OIDC Provider
+    # ------------------------------------------------------------------------
+    # - name: Configure AWS Credentials
+    #   uses: aws-actions/configure-aws-credentials@v4
+    #   with:
+    #     role-to-assume: arn:aws:iam::REPLACE_ME_ACCOUNT_ID:role/GitHubActionsRole
+    #     aws-region: us-east-1
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Plan
+      id: plan
+      # Note: In a real setup, you would pass -var-file or env vars for secrets
+      run: terraform plan -out=plan.tfplan
+      continue-on-error: false
+
+    - name: Upload Plan Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tfplan
+        path: infra/terraform/plan.tfplan
+        retention-days: 5

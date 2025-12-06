@@ -1,0 +1,100 @@
+# ============================================================================
+# CloudWatch Alarms - Example Template
+# ============================================================================
+# Required IAM: cloudwatch:PutMetricAlarm, sns:Publish
+# ============================================================================
+
+variable "sns_topic_arn" {
+  default = "arn:aws:sns:REPLACE_ME_REGION:REPLACE_ME_ACCOUNT:alerts"
+}
+
+variable "alb_arn_suffix" {
+  default = "REPLACE_ME_ALB_ARN_SUFFIX"
+}
+
+variable "cluster_name" {
+  default = "claude-proxy"
+}
+
+# ALB 5xx Error Rate
+resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
+  alarm_name          = "${var.cluster_name}-alb-5xx-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "HTTPCode_Target_5XX_Count"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 10
+  alarm_description   = "ALB 5xx errors exceeded threshold"
+
+  dimensions = {
+    LoadBalancer = var.alb_arn_suffix
+  }
+
+  alarm_actions = [var.sns_topic_arn]
+  ok_actions    = [var.sns_topic_arn]
+
+  tags = {
+    Severity = "high"
+  }
+}
+
+# Unhealthy Targets
+resource "aws_cloudwatch_metric_alarm" "unhealthy_targets" {
+  alarm_name          = "${var.cluster_name}-unhealthy-targets"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "UnHealthyHostCount"
+  namespace           = "AWS/ApplicationELB"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 1
+  alarm_description   = "Unhealthy targets detected"
+
+  dimensions = {
+    LoadBalancer = var.alb_arn_suffix
+    TargetGroup  = "REPLACE_ME_TG_ARN_SUFFIX"
+  }
+
+  alarm_actions = [var.sns_topic_arn]
+}
+
+# High CPU on ECS Tasks
+resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
+  alarm_name          = "${var.cluster_name}-cpu-high"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "ECS CPU utilization high"
+
+  dimensions = {
+    ClusterName = var.cluster_name
+    ServiceName = "api-service"
+  }
+
+  alarm_actions = [var.sns_topic_arn]
+}
+
+# SQS Queue Backlog
+resource "aws_cloudwatch_metric_alarm" "sqs_backlog" {
+  alarm_name          = "${var.cluster_name}-sqs-backlog"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 3
+  metric_name         = "ApproximateNumberOfMessagesVisible"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 1000
+  alarm_description   = "SQS queue backlog high"
+
+  dimensions = {
+    QueueName = "${var.cluster_name}-jobs"
+  }
+
+  alarm_actions = [var.sns_topic_arn]
+}

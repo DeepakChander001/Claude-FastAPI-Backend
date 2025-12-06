@@ -1,0 +1,69 @@
+graph TB
+    subgraph "Edge Layer"
+        CF[CloudFront CDN]
+        WAF[WAFv2]
+    end
+
+    subgraph "Load Balancing"
+        ALB[Application Load Balancer]
+    end
+
+    subgraph "Compute - ECS Fargate"
+        API[API Service]
+        WRK[Worker Service]
+    end
+
+    subgraph "Queue"
+        SQS[SQS Queue]
+        DLQ[Dead Letter Queue]
+    end
+
+    subgraph "Data & Secrets"
+        SM[Secrets Manager]
+        SB[(Supabase DB)]
+    end
+
+    subgraph "External"
+        CLAUDE[Claude API]
+    end
+
+    subgraph "Observability"
+        CW[CloudWatch]
+        OTEL[OTEL Collector]
+    end
+
+    %% Request Flow
+    CF --> WAF
+    WAF --> ALB
+    ALB --> API
+
+    %% Sync Flow
+    API -->|sync| CLAUDE
+
+    %% Async Flow
+    API -->|async| SQS
+    SQS --> WRK
+    WRK --> CLAUDE
+    SQS -.->|failed| DLQ
+
+    %% Data
+    API --> SM
+    WRK --> SM
+    API --> SB
+    WRK --> SB
+
+    %% Observability
+    API --> OTEL
+    WRK --> OTEL
+    OTEL --> CW
+
+    %% Legend
+    classDef edge fill:#e1f5fe
+    classDef compute fill:#c8e6c9
+    classDef data fill:#fff3e0
+    classDef ext fill:#ffcdd2
+
+    class CF,WAF edge
+    class API,WRK compute
+    class SM,SB data
+    class CLAUDE ext

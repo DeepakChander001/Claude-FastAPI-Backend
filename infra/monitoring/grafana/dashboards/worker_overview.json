@@ -1,0 +1,104 @@
+{
+    "title": "Worker Overview",
+    "uid": "worker-overview",
+    "tags": [
+        "claude-proxy",
+        "worker"
+    ],
+    "templating": {
+        "list": [
+            {
+                "name": "datasource",
+                "type": "datasource",
+                "query": "prometheus"
+            }
+        ]
+    },
+    "panels": [
+        {
+            "title": "SQS Queue Depth",
+            "type": "timeseries",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "aws_sqs_approximate_number_of_messages_visible{queue_name=\"claude-proxy-jobs\"}"
+                }
+            ],
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 0
+            }
+        },
+        {
+            "title": "Worker Concurrency",
+            "type": "gauge",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "sum(worker_active_jobs)"
+                }
+            ],
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            }
+        },
+        {
+            "title": "Jobs Processed (Success/Failure)",
+            "type": "timeseries",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "rate(worker_jobs_processed_total{status=\"success\"}[5m])",
+                    "legendFormat": "Success"
+                },
+                {
+                    "expr": "rate(worker_jobs_processed_total{status=\"failure\"}[5m])",
+                    "legendFormat": "Failure"
+                }
+            ],
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 8
+            }
+        },
+        {
+            "title": "Worker Latency Histogram",
+            "type": "heatmap",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "rate(worker_job_duration_seconds_bucket[5m])"
+                }
+            ],
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 8
+            }
+        },
+        {
+            "title": "DLQ Messages",
+            "type": "stat",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "aws_sqs_approximate_number_of_messages_visible{queue_name=\"claude-proxy-dlq\"}"
+                }
+            ],
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 18,
+                "y": 0
+            }
+        }
+    ]
+}

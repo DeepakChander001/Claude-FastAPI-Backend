@@ -1,0 +1,17 @@
+name: Label PR on Success
+
+on:
+  status
+
+jobs:
+  label-pr:
+    if: github.event.state == 'success' && github.event.context == 'Run Tests & Lint'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Label PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            // Example script to add label. Requires permissions.
+            // const pr = ...
+            console.log("CI Passed. Ready for review.");

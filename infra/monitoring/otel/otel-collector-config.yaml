@@ -1,0 +1,82 @@
+# OpenTelemetry Collector Configuration
+# ============================================================================
+# Run as sidecar, daemonset, or standalone service.
+# Required env vars: OTEL_EXPORTER_ENDPOINT, AWS_REGION
+# ============================================================================
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+  resource:
+    attributes:
+      - key: service.name
+        value: claude-proxy
+        action: upsert
+      - key: deployment.environment
+        value: REPLACE_ME_ENV
+        action: upsert
+
+  # PII Redaction - remove sensitive attributes
+  attributes:
+    actions:
+      - key: http.request.header.authorization
+        action: delete
+      - key: http.request.header.x-api-key
+        action: delete
+      - key: user.email
+        action: hash
+
+  # Sampling - reduce volume in production
+  probabilistic_sampler:
+    sampling_percentage: 10  # 10% sampling in prod
+
+exporters:
+  # CloudWatch Logs
+  awscloudwatchlogs:
+    log_group_name: /ecs/claude-proxy
+    log_stream_name: otel-collector
+    region: REPLACE_ME_REGION
+
+  # OTLP to another collector or backend
+  otlp:
+    endpoint: REPLACE_ME_OTEL_ENDPOINT:4317
+    tls:
+      insecure: true
+
+  # Prometheus remote write
+  prometheusremotewrite:
+    endpoint: REPLACE_ME_PROMETHEUS_ENDPOINT/api/v1/write
+
+  logging:
+    loglevel: info
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, resource, attributes, probabilistic_sampler]
+      exporters: [otlp, logging]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [prometheusremotewrite, logging]
+    
+    logs:
+      receivers: [otlp]
+      processors: [batch, resource, attributes]
+      exporters: [awscloudwatchlogs, logging]
+
+  telemetry:
+    logs:
+      level: info

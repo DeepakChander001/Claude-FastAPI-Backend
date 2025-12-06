@@ -1,0 +1,63 @@
+# Multi-stage Dockerfile for Production
+# --------------------------------------------------------------------------------
+# Stage 1: Builder
+# Use a pinned digest for reproducibility
+# REPLACE_ME_PYTHON_DIGEST with actual sha256 digest
+FROM python:3.11-slim AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install python dependencies into a wheelhouse
+# Use constraints.txt or --require-hashes for strict reproducibility
+COPY requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+
+# --------------------------------------------------------------------------------
+# Stage 2: Runtime
+# Use a pinned digest for reproducibility
+FROM python:3.11-slim AS runtime
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/venv/bin:$PATH"
+
+WORKDIR /app
+
+# Install runtime dependencies (tini for PID 1)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy wheels from builder and install
+COPY --from=builder /app/wheels /wheels
+COPY --from=builder /app/requirements.txt .
+RUN python -m venv /app/venv && \
+    /app/venv/bin/pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt
+
+# Copy application code
+COPY --chown=appuser:appuser src ./src
+COPY --chown=appuser:appuser infra ./infra
+
+# Metadata
+LABEL org.opencontainers.image.source="https://github.com/REPLACE_ME_ORG/claude-proxy" \
+      org.opencontainers.image.description="FastAPI Claude Proxy" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="REPLACE_ME_VERSION"
+
+# Switch to non-root user
+USER appuser
+
+# Use tini as entrypoint
+ENTRYPOINT ["/usr/bin/tini", "--"]
+
+# Default command
+CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "src.app.main:app", "--bind", "0.0.0.0:8000"]

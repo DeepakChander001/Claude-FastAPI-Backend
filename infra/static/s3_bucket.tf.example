@@ -1,0 +1,77 @@
+# ============================================================================
+# S3 Static Asset Bucket - Example Template
+# ============================================================================
+# Creates an S3 bucket for static assets with CloudFront OAI access.
+# Replace all REPLACE_ME placeholders before applying.
+# ============================================================================
+
+variable "bucket_name" {
+  description = "S3 bucket name for static assets"
+  type        = string
+  default     = "REPLACE_ME_BUCKET_NAME"
+}
+
+resource "aws_s3_bucket" "static" {
+  bucket = var.bucket_name
+
+  tags = {
+    Name = "claude-proxy-static"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "static" {
+  bucket = aws_s3_bucket.static.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_cloudfront_origin_access_identity" "static" {
+  comment = "OAI for static assets"
+}
+
+resource "aws_s3_bucket_policy" "static" {
+  bucket = aws_s3_bucket.static.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "AllowCloudFront"
+        Effect    = "Allow"
+        Principal = {
+          AWS = aws_cloudfront_origin_access_identity.static.iam_arn
+        }
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.static.arn}/*"
+      }
+    ]
+  })
+}
+
+# Lifecycle Rules
+resource "aws_s3_bucket_lifecycle_configuration" "static" {
+  bucket = aws_s3_bucket.static.id
+
+  rule {
+    id     = "cleanup-old-versions"
+    status = "Enabled"
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
+}
+
+# Example: Upload index.html with Cache-Control
+# aws s3 cp index.html s3://BUCKET/ --cache-control "max-age=31536000, public"
+
+output "bucket_arn" {
+  value = aws_s3_bucket.static.arn
+}
+
+output "oai_arn" {
+  value = aws_cloudfront_origin_access_identity.static.iam_arn
+}

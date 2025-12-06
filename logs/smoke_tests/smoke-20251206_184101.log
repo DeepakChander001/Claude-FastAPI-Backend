@@ -1,0 +1,10 @@
+===== Smoke Tests =====
+URL: http://REPLACE_ME_ALB_DNS
+Timestamp: 20251206_184101
+[Test 1] GET /health
+  FAIL: TIMEOUT
+[Test 2] POST /api/enqueue
+  FAIL: TIMEOUT
+===== Summary =====
+Passed: 0
+Failed: 2

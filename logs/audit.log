@@ -1,0 +1,9 @@
+{"timestamp": "2025-12-06T11:16:16.870706+00:00", "client_id": "apikey-secr", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 1.0776519775390625, "ip_address": "testclient", "user_agent": "testclient"}
+{"timestamp": "2025-12-06T11:16:16.887829+00:00", "client_id": "anonymous", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 0.0, "ip_address": "testclient", "user_agent": "testclient"}
+{"timestamp": "2025-12-06T11:16:16.891252+00:00", "client_id": "anonymous", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 0.0, "ip_address": "testclient", "user_agent": "testclient"}
+{"timestamp": "2025-12-06T11:16:16.895947+00:00", "client_id": "anonymous", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 1.57928466796875, "ip_address": "testclient", "user_agent": "testclient"}
+{"timestamp": "2025-12-06T11:16:17.094880+00:00", "client_id": "test-user", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 2.1605491638183594, "ip_address": "testclient", "user_agent": "testclient"}
+{"timestamp": "2025-12-06T11:18:31.901106+00:00", "client_id": "apikey-secr", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 1.5308856964111328, "ip_address": "testclient", "user_agent": "testclient"}
+{"timestamp": "2025-12-06T11:18:31.920223+00:00", "client_id": "anonymous", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 1.505136489868164, "ip_address": "testclient", "user_agent": "testclient"}
+{"timestamp": "2025-12-06T11:18:31.923260+00:00", "client_id": "anonymous", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 0.0, "ip_address": "testclient", "user_agent": "testclient"}
+{"timestamp": "2025-12-06T11:18:31.947164+00:00", "client_id": "test-user", "method": "GET", "path": "/secure", "status_code": 200, "duration_ms": 1.3232231140136719, "ip_address": "testclient", "user_agent": "testclient"}

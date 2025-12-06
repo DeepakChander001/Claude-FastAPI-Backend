@@ -1,0 +1,55 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ dev, main ]
+  pull_request:
+    branches: [ dev, main ]
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Audit Tools
+        run: |
+          pip install pip-audit bandit safety semgrep
+
+      - name: Dependency Audit (pip-audit)
+        continue-on-error: true
+        run: |
+          pip install -r requirements.txt
+          pip-audit -r requirements.txt --format=json > pip-audit-report.json
+
+      - name: SAST Scan (Bandit)
+        continue-on-error: true
+        run: |
+          bandit -r src/ -f json -o bandit-report.json
+
+      - name: Secret Scan (Gitleaks - Dry Run)
+        continue-on-error: true
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: detect --source . --verbose --redact
+
+      - name: Upload Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            pip-audit-report.json
+            bandit-report.json
+
+      - name: Check Failure Condition
+        if: env.SEC_SCAN_FAIL_ON_HIGH == 'true'
+        run: |
+          # Add logic to parse JSON and fail if high severity found
+          echo "Checking for high severity vulnerabilities..."

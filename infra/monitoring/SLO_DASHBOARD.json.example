@@ -1,0 +1,65 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "title": "Error Budget Remaining",
+        "metrics": [
+          ["Custom/SLO", "ErrorBudgetRemaining", "Service", "claude-proxy"]
+        ],
+        "period": 3600,
+        "stat": "Average",
+        "annotations": {
+          "horizontal": [
+            {"value": 0, "label": "Budget Exhausted", "color": "#ff0000"}
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "title": "Request Latency Percentiles",
+        "metrics": [
+          ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", "REPLACE_ME_ALB", {"stat": "p50", "label": "p50"}],
+          ["...", {"stat": "p95", "label": "p95"}],
+          ["...", {"stat": "p99", "label": "p99"}]
+        ],
+        "period": 60
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "title": "Request Rate",
+        "metrics": [
+          ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "REPLACE_ME_ALB"]
+        ],
+        "period": 60,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "title": "Error Rate (5xx)",
+        "metrics": [
+          ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", "REPLACE_ME_ALB"]
+        ],
+        "period": 60,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "title": "SQS Queue Depth",
+        "metrics": [
+          ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "REPLACE_ME_QUEUE"]
+        ],
+        "period": 60,
+        "stat": "Average"
+      }
+    }
+  ]
+}

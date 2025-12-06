@@ -1,0 +1,54 @@
+name: Canary Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      canary_percent:
+        description: 'Traffic percentage for canary (1-100)'
+        required: true
+        default: '1'
+      promote:
+        description: 'Auto-promote if successful?'
+        type: boolean
+        default: false
+
+jobs:
+  canary-release:
+    name: Canary Release
+    runs-on: ubuntu-latest
+    environment: production # Requires approval
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # - name: Configure AWS Credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     role-to-assume: arn:aws:iam::REPLACE_ME:role/github-actions-role
+      #     aws-region: us-east-1
+
+      - name: Build and Push
+        run: |
+          echo "Building image..."
+          # docker build ...
+          # docker push ...
+          echo "Image pushed: REPLACE_ME_IMAGE_URI"
+
+      - name: Run Canary Script
+        env:
+          IMAGE_URI: REPLACE_ME_IMAGE_URI
+        run: |
+          chmod +x infra/scripts/canary_release.sh
+          ./infra/scripts/canary_release.sh \
+            --image "$IMAGE_URI" \
+            --canary-percent "${{ github.event.inputs.canary_percent }}" \
+            --wait 300 \
+            ${{ github.event.inputs.promote == 'true' && '--promote' || '' }} \
+            --live # Uncomment to actually run
+
+      - name: Upload Smoke Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: smoke_test_output.log # Assuming script produces this

@@ -1,0 +1,108 @@
+{
+    "title": "API Overview",
+    "uid": "api-overview",
+    "tags": [
+        "claude-proxy",
+        "api"
+    ],
+    "templating": {
+        "list": [
+            {
+                "name": "datasource",
+                "type": "datasource",
+                "query": "prometheus"
+            }
+        ]
+    },
+    "panels": [
+        {
+            "title": "Request Rate (RPS)",
+            "type": "stat",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "rate(http_requests_total{job=\"claude-proxy-api\"}[5m])"
+                }
+            ],
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 0,
+                "y": 0
+            }
+        },
+        {
+            "title": "Latency p50/p95/p99",
+            "type": "timeseries",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket[5m]))",
+                    "legendFormat": "p50"
+                },
+                {
+                    "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+                    "legendFormat": "p95"
+                },
+                {
+                    "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+                    "legendFormat": "p99"
+                }
+            ],
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 4
+            }
+        },
+        {
+            "title": "Error Rate (5xx)",
+            "type": "timeseries",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "rate(http_requests_total{status=~\"5..\"}[5m])"
+                }
+            ],
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 4
+            }
+        },
+        {
+            "title": "Active Connections",
+            "type": "gauge",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "sum(http_connections_active)"
+                }
+            ],
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 6,
+                "y": 0
+            }
+        },
+        {
+            "title": "Rate Limit Hits",
+            "type": "stat",
+            "datasource": "${datasource}",
+            "targets": [
+                {
+                    "expr": "sum(rate(rate_limit_hits_total[5m]))"
+                }
+            ],
+            "gridPos": {
+                "h": 4,
+                "w": 6,
+                "x": 12,
+                "y": 0
+            }
+        }
+    ]
+}

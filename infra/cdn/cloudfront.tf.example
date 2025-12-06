@@ -1,0 +1,173 @@
+# ============================================================================
+# CloudFront Distribution - Example Template
+# ============================================================================
+# Replace all REPLACE_ME placeholders before applying.
+# Provider block is commented - define in your root module.
+# ============================================================================
+
+# provider "aws" {
+#   region = "us-east-1"  # CloudFront requires us-east-1 for ACM certs
+# }
+
+variable "origin_domain_name" {
+  description = "ALB DNS name"
+  type        = string
+  default     = "REPLACE_ME_ALB_DNS"
+}
+
+variable "acm_certificate_arn" {
+  description = "ACM Certificate ARN (must be in us-east-1)"
+  type        = string
+  default     = "arn:aws:acm:us-east-1:REPLACE_ME_ACCOUNT:certificate/REPLACE_ME_CERT_ID"
+}
+
+variable "price_class" {
+  description = "CloudFront price class"
+  type        = string
+  default     = "PriceClass_100" # Use PriceClass_All for global
+}
+
+variable "default_ttl" {
+  type    = number
+  default = 86400
+}
+
+variable "max_ttl" {
+  type    = number
+  default = 31536000
+}
+
+variable "min_ttl" {
+  type    = number
+  default = 0
+}
+
+variable "waf_acl_arn" {
+  description = "WAFv2 ACL ARN to attach (optional)"
+  type        = string
+  default     = "REPLACE_ME_WAF_ACL_ARN"
+}
+
+# CloudFront Distribution
+resource "aws_cloudfront_distribution" "main" {
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+  aliases             = ["REPLACE_ME_HOSTNAME"]
+  price_class         = var.price_class
+  web_acl_id          = var.waf_acl_arn
+
+  # Origin: ALB
+  origin {
+    domain_name = var.origin_domain_name
+    origin_id   = "alb-origin"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  # API Behavior: /api/* - No caching, forward all headers
+  ordered_cache_behavior {
+    path_pattern     = "/api/*"
+    target_origin_id = "alb-origin"
+    allowed_methods  = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods   = ["GET", "HEAD"]
+
+    viewer_protocol_policy = "redirect-to-https"
+
+    forwarded_values {
+      query_string = true
+      headers      = ["Authorization", "X-API-Key", "Accept", "Content-Type"]
+
+      cookies {
+        forward = "all"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 0
+    max_ttl     = 0
+    compress    = true
+  }
+
+  # Static Behavior: /static/* - Long cache
+  ordered_cache_behavior {
+    path_pattern     = "/static/*"
+    target_origin_id = "alb-origin"
+    allowed_methods  = ["GET", "HEAD"]
+    cached_methods   = ["GET", "HEAD"]
+
+    viewer_protocol_policy = "redirect-to-https"
+
+    forwarded_values {
+      query_string = false
+      headers      = ["Accept-Encoding"]
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = var.min_ttl
+    default_ttl = var.default_ttl
+    max_ttl     = var.max_ttl
+    compress    = true
+  }
+
+  # Default Behavior
+  default_cache_behavior {
+    target_origin_id       = "alb-origin"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    viewer_protocol_policy = "redirect-to-https"
+
+    forwarded_values {
+      query_string = true
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
+    compress    = true
+  }
+
+  # TLS Certificate
+  viewer_certificate {
+    acm_certificate_arn      = var.acm_certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  tags = {
+    Name = "claude-proxy-cdn"
+  }
+}
+
+# Lambda@Edge or CloudFront Functions (Example - Commented)
+# For header normalization, bot challenges, A/B testing, etc.
+# resource "aws_cloudfront_function" "header_normalize" {
+#   name    = "header-normalize"
+#   runtime = "cloudfront-js-1.0"
+#   code    = file("${path.module}/functions/header_normalize.js")
+# }
+
+output "cloudfront_domain" {
+  value = aws_cloudfront_distribution.main.domain_name
+}
+
+output "cloudfront_id" {
+  value = aws_cloudfront_distribution.main.id
+}

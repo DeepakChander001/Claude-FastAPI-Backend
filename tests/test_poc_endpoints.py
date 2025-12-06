@@ -1,4 +1,4 @@
-from src.app.deps import get_client
+from src.app.dependencies import get_anthropic_client
 
 def test_health_check(test_client):
     """
@@ -14,7 +14,7 @@ def test_generate_endpoint_mock(test_client, mock_client, monkeypatch):
     """
     # Override the dependency to return the mock client
     from src.app.main import app
-    app.dependency_overrides[get_client] = lambda: mock_client
+    app.dependency_overrides[get_anthropic_client] = lambda: mock_client
 
     payload = {
         "prompt": "Test prompt",

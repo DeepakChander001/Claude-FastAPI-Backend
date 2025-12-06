@@ -52,11 +52,12 @@ def test_load_from_aws_secrets_failure_graceful():
     
     settings = Settings(
         AWS_SECRETS_MANAGER_ENABLED=True,
-        AWS_SECRETS_NAME="test-secret"
+        AWS_SECRETS_NAME="test-secret",
+        ANTHROPIC_API_KEY="INITIAL_TEST_VALUE"
     )
     
     # Should not raise exception
     settings.load_from_aws_secrets(boto3_client=mock_client)
     
-    # Values should remain defaults/none
-    assert settings.ANTHROPIC_API_KEY is None
+    # Values should remain as initialized
+    assert settings.ANTHROPIC_API_KEY == "INITIAL_TEST_VALUE"

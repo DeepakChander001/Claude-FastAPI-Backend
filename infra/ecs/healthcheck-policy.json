@@ -1,0 +1,10 @@
+{
+    "Path": "/health",
+    "IntervalSeconds": 15,
+    "TimeoutSeconds": 10,
+    "HealthyThresholdCount": 2,
+    "UnhealthyThresholdCount": 3,
+    "Matcher": {
+        "HttpCode": "200"
+    }
+}

@@ -1,0 +1,59 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "title": "CloudFront Requests",
+        "metrics": [
+          ["AWS/CloudFront", "Requests", "DistributionId", "REPLACE_ME_DIST_ID", "Region", "Global"]
+        ],
+        "period": 300,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "title": "4xx Error Rate",
+        "metrics": [
+          ["AWS/CloudFront", "4xxErrorRate", "DistributionId", "REPLACE_ME_DIST_ID", "Region", "Global"]
+        ],
+        "period": 300,
+        "stat": "Average"
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "title": "5xx Error Rate",
+        "metrics": [
+          ["AWS/CloudFront", "5xxErrorRate", "DistributionId", "REPLACE_ME_DIST_ID", "Region", "Global"]
+        ],
+        "period": 300,
+        "stat": "Average"
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "title": "Cache Hit Rate",
+        "metrics": [
+          ["AWS/CloudFront", "CacheHitRate", "DistributionId", "REPLACE_ME_DIST_ID", "Region", "Global"]
+        ],
+        "period": 300,
+        "stat": "Average"
+      }
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "title": "WAF Blocked Requests",
+        "metrics": [
+          ["AWS/WAFV2", "BlockedRequests", "WebACL", "REPLACE_ME_WAF_ACL", "Region", "Global"]
+        ],
+        "period": 300,
+        "stat": "Sum"
+      }
+    }
+  ]
+}

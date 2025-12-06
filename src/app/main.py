@@ -1,10 +1,14 @@
 from fastapi import FastAPI, Depends, HTTPException
 from src.app.models import GenerateRequest, GenerateResponse
-from src.app.deps import get_settings, get_client
-from src.app.client import AnthropicClientWrapper
+from src.app.dependencies import get_settings, get_anthropic_client
+from src.app.services.anthropic_client import AnthropicClientProtocol
 from src.app.config import Settings
 
+from src.app.api.enqueue import router as enqueue_router
+
 app = FastAPI(title="claude-proxy-poc")
+
+app.include_router(enqueue_router)
 
 @app.get("/health")
 def health_check():
@@ -17,17 +21,16 @@ def health_check():
 def generate(
     request: GenerateRequest,
     settings: Settings = Depends(get_settings),
-    client: AnthropicClientWrapper = Depends(get_client)
+    client: AnthropicClientProtocol = Depends(get_anthropic_client)
 ):
     """
     Generate text using the configured Claude model.
     Currently supports synchronous generation only.
     """
     # TODO: Implement streaming support when request.stream is True.
-    # For now, we ignore request.stream or return an error if strictly required.
     
     try:
-        result = client.generate_sync(
+        result = client.generate_text(
             prompt=request.prompt,
             model=request.model or settings.DEFAULT_MODEL,
             max_tokens=request.max_tokens,

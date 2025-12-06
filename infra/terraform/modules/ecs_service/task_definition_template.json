@@ -1,0 +1,62 @@
+{
+    "family": "claude-proxy-api",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "256",
+    "memory": "512",
+    "executionRoleArn": "REPLACE_ME_EXECUTION_ROLE_ARN",
+    "taskRoleArn": "REPLACE_ME_TASK_ROLE_ARN",
+    "containerDefinitions": [
+        {
+            "name": "api",
+            "image": "REPLACE_ME_IMAGE",
+            "essential": true,
+            "portMappings": [
+                {
+                    "containerPort": 8000,
+                    "hostPort": 8000,
+                    "protocol": "tcp"
+                }
+            ],
+            "environment": [
+                {
+                    "name": "ENV",
+                    "value": "production"
+                },
+                {
+                    "name": "LOG_JSON",
+                    "value": "true"
+                }
+            ],
+            "secrets": [
+                {
+                    "name": "ANTHROPIC_API_KEY",
+                    "valueFrom": "REPLACE_ME_SECRETS_ARN:ANTHROPIC_API_KEY::"
+                },
+                {
+                    "name": "JWT_SECRET",
+                    "valueFrom": "REPLACE_ME_SECRETS_ARN:JWT_SECRET::"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/claude-proxy",
+                    "awslogs-region": "REPLACE_ME_REGION",
+                    "awslogs-stream-prefix": "api"
+                }
+            },
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:8000/health || exit 1"
+                ],
+                "interval": 30,
+                "timeout": 5,
+                "retries": 3
+            }
+        }
+    ]
+}
