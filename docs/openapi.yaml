@@ -1,0 +1,149 @@
+openapi: 3.0.0
+info:
+  title: Claude Proxy API
+  version: 1.0.0
+  description: Proxy API for Anthropic Claude.
+servers:
+  - url: https://REPLACE_ME
+    description: Production Server
+paths:
+  /api/generate:
+    post:
+      summary: Generate text
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+            example:
+              prompt: "Hello, world!"
+              model: "claude-3.5"
+              stream: false
+      responses:
+        '200':
+          description: Successful generation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateResponse'
+        '400':
+          description: Bad Request
+        '401':
+          description: Unauthorized
+        '429':
+          description: Too Many Requests
+        '500':
+          description: Internal Server Error
+
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+  /status/{request_id}:
+    get:
+      summary: Get request status
+      security:
+        - bearerAuth: []
+        - apiKeyAuth: []
+      parameters:
+        - name: request_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Request status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          description: Request not found
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    GenerateRequest:
+      type: object
+      required:
+        - prompt
+      properties:
+        prompt:
+          type: string
+        model:
+          type: string
+          default: "claude-3.5"
+        stream:
+          type: boolean
+          default: false
+        max_tokens:
+          type: integer
+          default: 800
+        temperature:
+          type: number
+          default: 0.0
+        metadata:
+          type: object
+
+    GenerateResponse:
+      type: object
+      required:
+        - request_id
+        - output
+        - model
+      properties:
+        request_id:
+          type: string
+        output:
+          type: string
+        model:
+          type: string
+        usage:
+          type: object
+        warnings:
+          type: array
+          items:
+            type: string
+
+    StatusResponse:
+      type: object
+      required:
+        - request_id
+        - status
+        - created_at
+      properties:
+        request_id:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        created_at:
+          type: string
+        completed_at:
+          type: string
+        partial_output:
+          type: string
