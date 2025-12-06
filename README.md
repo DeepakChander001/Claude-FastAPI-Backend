@@ -27,6 +27,12 @@ This project is a clean, professional backend service designed to act as a proxy
     cp .env.example .env
     ```
     Edit `.env` and replace placeholders (e.g., `ANTHROPIC_API_KEY`) with your actual values.
+    Set `USE_MOCK_CLIENT=true` to use the local mock client (no API key required).
+    Set `USE_MOCK_CLIENT=false` to use the real Anthropic API (requires valid key).
+    
+    **Configuration & Secrets**:
+    -   See `docs/SECRETS.md` for details on using AWS Secrets Manager in production.
+    -   For Supabase integration, set `SUPABASE_URL` and `SUPABASE_KEY` in `.env` (local) or AWS Secrets Manager (prod).
 3.  **Run Locally**:
     (Instructions to be added in future steps. Currently, the project is in the skeleton phase.)
 
