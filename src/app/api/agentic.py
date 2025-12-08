@@ -126,10 +126,10 @@ async def agent_chat(
             message="Please approve or reject the proposed actions using /api/agent/confirm"
         )
     
-    # Real client
+    # Real client - use hardcoded valid model to avoid .env issues
     client = AgenticAnthropicClient(
         api_key=settings.ANTHROPIC_API_KEY,
-        model=settings.DEFAULT_MODEL
+        model="claude-3-haiku-20240307"  # Use valid model name
     )
     
     result = client.generate_with_tools(
