@@ -24,10 +24,9 @@ class SupabaseClientWrapper:
 
         if self.client is None and url and key and url != "REPLACE_ME":
             try:
-                # Example of real client initialization (commented out to avoid dependency)
-                # from supabase import create_client, Client
-                # self.client: Client = create_client(url, key)
-                pass
+                from supabase import create_client, Client
+                self.client: Client = create_client(url, key)
+                logger.info("Supabase client initialized successfully")
             except ImportError:
                 logger.warning("supabase-py not installed. Cannot connect to real database.")
             except Exception as e:
