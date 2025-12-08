@@ -1,10 +1,13 @@
 import uuid
 import anthropic
-from typing import Dict, Any, Protocol
+from typing import Dict, Any, Protocol, Iterator, Generator
 from src.app.config import Settings
 
 class AnthropicClientProtocol(Protocol):
     def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Dict[str, Any]:
+        ...
+    
+    def stream_generate(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Generator[str, None, None]:
         ...
 
 class MockAnthropicClient:
@@ -19,6 +22,15 @@ class MockAnthropicClient:
             "usage": {"input_tokens": 10, "output_tokens": 20},
             "warnings": ["This is a mock response."]
         }
+    
+    def stream_generate(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Generator[str, None, None]:
+        """Mock streaming - yields word by word."""
+        import time
+        mock_response = f"This is a mock streaming response to your prompt about: {prompt[:30]}..."
+        words = mock_response.split()
+        for word in words:
+            time.sleep(0.1)  # Simulate delay
+            yield word + " "
 
 class RealAnthropicClient:
     """
@@ -43,8 +55,26 @@ class RealAnthropicClient:
                 "warnings": []
             }
         except anthropic.APIError as e:
-            # In a real app, we might want to map these to specific HTTP exceptions
-            # or let the caller handle them.
             raise e
         except Exception as e:
             raise e
+
+    def stream_generate(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Generator[str, None, None]:
+        """
+        Stream tokens from Anthropic API.
+        Yields text chunks as they arrive.
+        """
+        try:
+            with self.client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                messages=[{"role": "user", "content": prompt}]
+            ) as stream:
+                for text in stream.text_stream:
+                    yield text
+        except anthropic.APIError as e:
+            yield f"\n\n[Error: {str(e)}]"
+        except Exception as e:
+            yield f"\n\n[Error: {str(e)}]"
+
