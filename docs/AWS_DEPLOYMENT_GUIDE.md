@@ -231,26 +231,22 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y python3 python3-pip python3-venv git
 ```
 
-### 7.3 Clone Your Repository
+### 7.3 Clone Your Repository from GitHub
 
-**Option A: Clone from GitHub**
+Since your code is already pushed to GitHub, clone it directly:
+
 ```bash
 cd ~
-git clone https://github.com/YOUR_USERNAME/EC2-Backend.git
+git clone https://github.com/DeepakChander001/Claude-FastAPI-Backend.git EC2-Backend
 cd EC2-Backend
 ```
 
-**Option B: Upload from your computer**
-
-Open a NEW terminal on your local computer (not the SSH session):
+**Verify the files are there:**
 ```bash
-scp -i ~/.ssh/claude-proxy-key.pem -r ~/Desktop/EC2-Backend ubuntu@YOUR_EC2_IP:~/
+ls -la
 ```
 
-Then back in SSH:
-```bash
-cd ~/EC2-Backend
-```
+You should see files like `requirements.txt`, `src/`, `docs/`, etc.
 
 ### 7.4 Set Up Python Environment
 
