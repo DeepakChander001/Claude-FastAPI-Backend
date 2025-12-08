@@ -7,10 +7,12 @@ from src.app.config import Settings
 from typing import Generator
 
 from src.app.api.enqueue import router as enqueue_router
+from src.app.api.agentic import router as agentic_router
 
 app = FastAPI(title="claude-proxy-poc")
 
 app.include_router(enqueue_router)
+app.include_router(agentic_router)
 
 @app.get("/health")
 def health_check():
