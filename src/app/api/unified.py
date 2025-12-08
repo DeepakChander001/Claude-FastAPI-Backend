@@ -90,39 +90,25 @@ def detect_intent(prompt: str) -> str:
     """
     prompt_lower = prompt.lower()
     
-    # Tool use keywords
-    tool_keywords = [
-        'create file', 'make file', 'write file', 'save file',
-        'delete file', 'remove file',
-        'edit file', 'modify file', 'update file',
-        'run command', 'execute', 'run script',
+    # Strong action keywords that clearly indicate tool use
+    action_phrases = [
+        'create a file', 'make a file', 'write a file', 'generate a file',
+        'create file', 'make file', 'write file',
+        'run command', 'execute command', 'run a command',
         'list files', 'show files', 'list directory',
-        'read file', 'show file', 'open file'
+        'read file', 'read the file', 'show content',
+        'delete file', 'remove file'
     ]
     
-    for keyword in tool_keywords:
-        if keyword in prompt_lower:
+    for phrase in action_phrases:
+        if phrase in prompt_lower:
             return 'tool_use'
+            
+    # If generic search/create keywords exist, lean towards tool use
+    if ('create' in prompt_lower or 'write' in prompt_lower) and ('.py' in prompt_lower or '.txt' in prompt_lower or '.md' in prompt_lower or '.json' in prompt_lower):
+        return 'tool_use'
     
-    # Default to simple question
     return 'simple'
-
-
-def stream_generator(
-    client: AnthropicClientProtocol,
-    prompt: str,
-    model: str,
-    max_tokens: int,
-    temperature: float
-) -> Generator[str, None, None]:
-    """Generator for streaming responses."""
-    for chunk in client.stream_generate(
-        prompt=prompt,
-        model=model,
-        max_tokens=max_tokens,
-        temperature=temperature
-    ):
-        yield chunk
 
 
 def generate_tool_proposals(prompt: str) -> List[Dict[str, Any]]:
@@ -130,81 +116,65 @@ def generate_tool_proposals(prompt: str) -> List[Dict[str, Any]]:
     proposals = []
     prompt_lower = prompt.lower()
     
-    # Detect create file intent
-    if 'create' in prompt_lower and 'file' in prompt_lower:
-        # Extract filename if mentioned
-        import re
-        file_match = re.search(r'(?:called|named|file)\s+([a-zA-Z0-9_.-]+)', prompt_lower)
-        filename = file_match.group(1) if file_match else 'new_file.py'
-        
-        proposals.append({
-            "tool_id": str(uuid.uuid4()),
-            "tool_type": "create_file",
-            "description": f"Create file: {filename}",
-            "parameters": {
-                "path": filename,
-                "content": f"# {filename}\n# Created by AI assistant\n\nprint('Hello, World!')"
-            },
-            "requires_confirmation": True,
-            "risk_level": "medium"
-        })
+    # Detect create file intent (Improved regex)
+    if 'create' in prompt_lower or 'make' in prompt_lower or 'write' in prompt_lower:
+        if 'file' in prompt_lower or '.py' in prompt_lower or '.txt' in prompt_lower:
+            # Try to extract filename
+            import re
+            # Matches: called test.py, named test.py, file test.py, or just test.py
+            file_match = re.search(r'(?:called|named|file)\s+([a-zA-Z0-9_.-]+)', prompt_lower)
+            
+            # Fallback: look for extension
+            if not file_match:
+                file_match = re.search(r'([a-zA-Z0-9_.-]+\.(?:py|txt|md|json|js|html|css))', prompt_lower)
+                
+            filename = file_match.group(1) if file_match else 'new_file.txt'
+            
+            proposals.append({
+                "tool_id": str(uuid.uuid4()),
+                "tool_type": "create_file",
+                "description": f"Create file: {filename}",
+                "parameters": {
+                    "path": filename,
+                    "content": f"# {filename}\n# Created by AI assistant based on request: {prompt}\n\nprint('Hello from {filename}!')"
+                },
+                "requires_confirmation": True,
+                "risk_level": "medium"
+            })
+            return proposals # Return immediately to avoid duplicates
     
     # Detect run command intent
-    if 'run' in prompt_lower or 'execute' in prompt_lower or 'command' in prompt_lower:
-        import re
-        cmd_match = re.search(r'(?:run|execute|command)[:\s]+(.+?)(?:$|\.)', prompt_lower)
-        command = cmd_match.group(1).strip() if cmd_match else 'echo "Hello"'
-        
-        proposals.append({
-            "tool_id": str(uuid.uuid4()),
-            "tool_type": "run_command",
-            "description": f"Run command: {command}",
-            "parameters": {"command": command},
-            "requires_confirmation": True,
-            "risk_level": "high"
-        })
-    
-    # Detect list directory intent
-    if 'list' in prompt_lower and ('file' in prompt_lower or 'director' in prompt_lower):
+    if 'run' in prompt_lower or 'execute' in prompt_lower:
+        if 'command' in prompt_lower or 'script' in prompt_lower or 'ls' in prompt_lower or 'echo' in prompt_lower:
+            import re
+            cmd_match = re.search(r'(?:run|execute|command)\s+(?:[:"\']\s*)?(.+?)(?:["\']|$|\n)', prompt_lower)
+            command = cmd_match.group(1).strip() if cmd_match else 'ls -la'
+            
+            # Clean up command
+            command = command.replace("the command", "").strip()
+            
+            proposals.append({
+                "tool_id": str(uuid.uuid4()),
+                "tool_type": "run_command",
+                "description": f"Run command: {command}",
+                "parameters": {"command": command},
+                "requires_confirmation": True,
+                "risk_level": "high"
+            })
+            return proposals
+
+    # Detect list files
+    if 'list' in prompt_lower and ('file' in prompt_lower or 'director' in prompt_lower or 'ls' in prompt_lower):
         proposals.append({
             "tool_id": str(uuid.uuid4()),
             "tool_type": "list_directory",
-            "description": "List directory: .",
+            "description": "List current directory",
             "parameters": {"path": "."},
             "requires_confirmation": True,
             "risk_level": "low"
         })
-    
-    # Detect read file intent
-    if 'read' in prompt_lower and 'file' in prompt_lower:
-        import re
-        file_match = re.search(r'(?:read|show|open)\s+(?:file\s+)?([a-zA-Z0-9_.-]+)', prompt_lower)
-        filename = file_match.group(1) if file_match else 'file.txt'
+        return proposals
         
-        proposals.append({
-            "tool_id": str(uuid.uuid4()),
-            "tool_type": "read_file",
-            "description": f"Read file: {filename}",
-            "parameters": {"path": filename},
-            "requires_confirmation": True,
-            "risk_level": "low"
-        })
-    
-    # Detect delete file intent
-    if 'delete' in prompt_lower or 'remove' in prompt_lower:
-        import re
-        file_match = re.search(r'(?:delete|remove)\s+(?:file\s+)?([a-zA-Z0-9_.-]+)', prompt_lower)
-        filename = file_match.group(1) if file_match else 'file.txt'
-        
-        proposals.append({
-            "tool_id": str(uuid.uuid4()),
-            "tool_type": "delete_file",
-            "description": f"Delete file: {filename}",
-            "parameters": {"path": filename},
-            "requires_confirmation": True,
-            "risk_level": "high"
-        })
-    
     return proposals
 
 
