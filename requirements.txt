@@ -8,3 +8,5 @@ pytest-mock
 anthropic
 gunicorn
 supabase
+curl_cffi
+fake-useragent

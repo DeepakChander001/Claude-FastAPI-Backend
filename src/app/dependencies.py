@@ -3,6 +3,7 @@ from typing import Optional, Any
 from fastapi import Depends
 from src.app.config import Settings
 from src.app.services.anthropic_client import AnthropicClientProtocol, RealAnthropicClient, MockAnthropicClient
+from src.app.services.claude_web_client import ClaudeWebClient
 
 # Singleton instance
 _settings_instance: Optional[Settings] = None
@@ -30,11 +31,13 @@ def get_anthropic_client(settings: Settings = Depends(get_settings)) -> Anthropi
     if settings.USE_MOCK_CLIENT:
         return MockAnthropicClient()
     
+    # Check for Web Client Mode first
+    if settings.CLAUDE_WEB_ENABLED and settings.CLAUDE_SESSION_KEY:
+        return ClaudeWebClient(session_key=settings.CLAUDE_SESSION_KEY)
+    
     # Ensure API key is present for real client
     if not settings.ANTHROPIC_API_KEY:
-        # Fallback to mock or raise error depending on strictness. 
-        # For now, we'll return mock if key is missing to prevent crash, 
-        # but in prod this should likely be an error.
+        # Fallback to mock
         return MockAnthropicClient()
         
     return RealAnthropicClient(api_key=settings.ANTHROPIC_API_KEY)
