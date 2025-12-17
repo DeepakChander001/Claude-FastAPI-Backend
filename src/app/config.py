@@ -10,10 +10,7 @@ class Settings(BaseSettings):
     """
     Application settings loaded from environment variables and optionally AWS Secrets Manager.
     """
-    ANTHROPIC_API_KEY: Optional[str] = None
-    ZAI_API_KEY: Optional[str] = None # Z.AI API Key (Alternative Provider)
-    CLAUDE_SESSION_KEY: Optional[str] = None  # Unofficial Web Session Key
-    CLAUDE_WEB_ENABLED: bool = False # Toggle to use Web Client instead of API
+    ZAI_API_KEY: Optional[str] = None # Z.AI API Key (Primary Provider)
     USE_MOCK_CLIENT: bool = True
     DEFAULT_MODEL: str = "claude-3-haiku-20240307"
     
@@ -66,12 +63,8 @@ class Settings(BaseSettings):
             secrets = get_secrets_from_aws(self.AWS_SECRETS_NAME, boto3_client)
             
             # Update settings if keys exist in the secret
-            if "ANTHROPIC_API_KEY" in secrets:
-                self.ANTHROPIC_API_KEY = secrets["ANTHROPIC_API_KEY"]
             if "ZAI_API_KEY" in secrets:
                 self.ZAI_API_KEY = secrets["ZAI_API_KEY"]
-            if "CLAUDE_SESSION_KEY" in secrets:
-                self.CLAUDE_SESSION_KEY = secrets["CLAUDE_SESSION_KEY"]
             if "SUPABASE_URL" in secrets:
                 self.SUPABASE_URL = secrets["SUPABASE_URL"]
             if "SUPABASE_KEY" in secrets:
