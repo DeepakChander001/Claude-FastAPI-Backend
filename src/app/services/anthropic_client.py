@@ -45,9 +45,9 @@ class RealAnthropicClient:
         Map model names if using Z.AI.
         """
         if self.base_url and "z.ai" in self.base_url:
-            if "claude-3-5" in model or "sonnet" in model:
-                return "glm-4.6"
-            # Add more mappings as needed
+            # Force GLM-4.6 as requested by user (Concurrency Limit 5)
+            # This handles claude-3-5-sonnet, claude-3-opus, etc.
+            return "GLM-4.6"
             
         return model
 

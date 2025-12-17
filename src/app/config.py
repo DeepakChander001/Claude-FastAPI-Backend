@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """
     ZAI_API_KEY: Optional[str] = None # Z.AI API Key (Primary Provider)
     USE_MOCK_CLIENT: bool = True
-    DEFAULT_MODEL: str = "claude-3-haiku-20240307"
+    DEFAULT_MODEL: str = "GLM-4.6"
     
     # AWS Secrets Manager Configuration
     AWS_SECRETS_MANAGER_ENABLED: bool = False
