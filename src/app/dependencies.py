@@ -35,6 +35,13 @@ def get_anthropic_client(settings: Settings = Depends(get_settings)) -> Anthropi
     if settings.CLAUDE_WEB_ENABLED and settings.CLAUDE_SESSION_KEY:
         return ClaudeWebClient(session_key=settings.CLAUDE_SESSION_KEY)
     
+    # Check for Z.AI (Alternative Provider)
+    if settings.ZAI_API_KEY:
+        return RealAnthropicClient(
+            api_key=settings.ZAI_API_KEY, 
+            base_url="https://api.z.ai/api/anthropic"
+        )
+
     # Ensure API key is present for real client
     if not settings.ANTHROPIC_API_KEY:
         # Fallback to mock

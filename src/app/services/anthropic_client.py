@@ -36,13 +36,26 @@ class RealAnthropicClient:
     """
     Real client wrapper for Anthropic API.
     """
-    def __init__(self, api_key: str):
-        self.client = anthropic.Anthropic(api_key=api_key)
+    def __init__(self, api_key: str, base_url: str = None):
+        self.base_url = base_url
+        self.client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+
+    def _map_model(self, model: str) -> str:
+        """
+        Map model names if using Z.AI.
+        """
+        if self.base_url and "z.ai" in self.base_url:
+            if "claude-3-5" in model or "sonnet" in model:
+                return "glm-4.6"
+            # Add more mappings as needed
+            
+        return model
 
     def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Dict[str, Any]:
+        target_model = self._map_model(model)
         try:
             response = self.client.messages.create(
-                model=model,
+                model=target_model,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 messages=[{"role": "user", "content": prompt}]
@@ -64,9 +77,10 @@ class RealAnthropicClient:
         Stream tokens from Anthropic API.
         Yields text chunks as they arrive.
         """
+        target_model = self._map_model(model)
         try:
             with self.client.messages.stream(
-                model=model,
+                model=target_model,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 messages=[{"role": "user", "content": prompt}]

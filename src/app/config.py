@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     Application settings loaded from environment variables and optionally AWS Secrets Manager.
     """
     ANTHROPIC_API_KEY: Optional[str] = None
+    ZAI_API_KEY: Optional[str] = None # Z.AI API Key (Alternative Provider)
     CLAUDE_SESSION_KEY: Optional[str] = None  # Unofficial Web Session Key
     CLAUDE_WEB_ENABLED: bool = False # Toggle to use Web Client instead of API
     USE_MOCK_CLIENT: bool = True
@@ -67,6 +68,8 @@ class Settings(BaseSettings):
             # Update settings if keys exist in the secret
             if "ANTHROPIC_API_KEY" in secrets:
                 self.ANTHROPIC_API_KEY = secrets["ANTHROPIC_API_KEY"]
+            if "ZAI_API_KEY" in secrets:
+                self.ZAI_API_KEY = secrets["ZAI_API_KEY"]
             if "CLAUDE_SESSION_KEY" in secrets:
                 self.CLAUDE_SESSION_KEY = secrets["CLAUDE_SESSION_KEY"]
             if "SUPABASE_URL" in secrets:
