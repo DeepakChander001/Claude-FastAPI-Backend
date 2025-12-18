@@ -5,7 +5,7 @@ from typing import Dict, Any, Protocol, Iterator, Generator
 from src.app.config import Settings
 
 class AnthropicClientProtocol(Protocol):
-    def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Dict[str, Any]:
+    def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float, tools: list = None) -> Dict[str, Any]:
         ...
     
     def stream_generate(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Generator[str, None, None]:
@@ -15,7 +15,7 @@ class MockAnthropicClient:
     """
     Mock client for local development and testing.
     """
-    def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Dict[str, Any]:
+    def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float, tools: list = None) -> Dict[str, Any]:
         return {
             "request_id": f"local-{uuid.uuid4()}",
             "output": f"MOCK: {prompt[:50]}..." if len(prompt) > 50 else f"MOCK: {prompt}",
@@ -66,25 +66,35 @@ class RealAnthropicClient:
             
         return model
 
-    def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Dict[str, Any]:
+    def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float, tools: list = None) -> Dict[str, Any]:
         target_model = self._map_model(model)
         
         # === OpenAI SDK (OpenRouter) ===
         if self.client_type == "openai":
             try:
-                response = self.client.chat.completions.create(
-                    model=target_model,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=max_tokens,
-                    temperature=temperature
-                )
+                # Prepare args
+                kwargs = {
+                    "model": target_model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": max_tokens,
+                    "temperature": temperature
+                }
+                if tools:
+                    kwargs["tools"] = tools
+                    kwargs["tool_choice"] = "auto"
+
+                response = self.client.chat.completions.create(**kwargs)
                 
-                content = response.choices[0].message.content
+                message = response.choices[0].message
+                content = message.content
+                tool_calls = message.tool_calls if hasattr(message, 'tool_calls') else None
+                
                 return {
                     "request_id": response.id,
                     "output": content,
                     "model": response.model,
-                    "usage": {"input_tokens": 0, "output_tokens": 0}, # OpenAI usage format differs
+                    "tool_calls": tool_calls, # Pass raw tool calls back
+                    "usage": {"input_tokens": 0, "output_tokens": 0}, 
                     "warnings": []
                 }
             except Exception as e:
@@ -92,6 +102,8 @@ class RealAnthropicClient:
 
         # === Anthropic SDK (Native/Z.AI) ===
         try:
+            # Note: Tool use logic for Native Anthropic is slightly different
+            # We are prioritizing OpenRouter for now.
             response = self.client.messages.create(
                 model=target_model,
                 max_tokens=max_tokens,

@@ -25,6 +25,54 @@ from src.app.services.anthropic_client import AnthropicClientProtocol
 from src.app.db import SupabaseClientWrapper
 from src.app.tools import ToolExecutor, ToolType, TOOL_DEFINITIONS
 from src.app.services.slash_commands import SlashCommandService
+import json
+
+# Native Tool Definitions (OpenAI Format)
+NATIVE_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "create_file",
+            "description": "Create a new file with the specified content. Use this to write code or save data.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File path (e.g. src/main.py)"},
+                    "content": {"type": "string", "description": "Full file content"}
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_command",
+            "description": "Execute a shell command. Use this to list files, run scripts, or check system status.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Shell command to run (e.g. ls -la, python script.py)"}
+                },
+                "required": ["command"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_directory",
+            "description": "List files in a directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Directory path (default: .)"}
+                },
+                "required": ["path"]
+            }
+        }
+    }
+]
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +93,7 @@ class UnifiedRequest(BaseModel):
     model: Optional[str] = Field(None, description="Model to use (optional)")
     max_tokens: int = Field(1024, description="Maximum tokens in response")
     temperature: float = Field(0.7, description="Sampling temperature")
-    stream: bool = Field(False, description="Enable streaming response")
+    stream: bool = Field(True, description="Enable streaming response")
     
     # For confirmation flow
     session_id: Optional[str] = Field(None, description="Session ID for continuing a conversation")
@@ -84,99 +132,7 @@ def get_db_client(settings: Settings) -> Optional[SupabaseClientWrapper]:
     return _db_client
 
 
-def detect_intent(prompt: str) -> str:
-    """
-    Detect user intent from the prompt.
-    Returns: 'simple', 'tool_use', or 'search'
-    """
-    prompt_lower = prompt.lower()
-    
-    # Strong action keywords that clearly indicate tool use
-    action_phrases = [
-        'create a file', 'make a file', 'write a file', 'generate a file',
-        'create file', 'make file', 'write file',
-        'run command', 'execute command', 'run a command',
-        'list files', 'show files', 'list directory',
-        'read file', 'read the file', 'show content',
-        'delete file', 'remove file'
-    ]
-    
-    for phrase in action_phrases:
-        if phrase in prompt_lower:
-            return 'tool_use'
-            
-    # If generic search/create keywords exist, lean towards tool use
-    if ('create' in prompt_lower or 'write' in prompt_lower) and ('.py' in prompt_lower or '.txt' in prompt_lower or '.md' in prompt_lower or '.json' in prompt_lower):
-        return 'tool_use'
-    
-    return 'simple'
-
-
-def generate_tool_proposals(prompt: str) -> List[Dict[str, Any]]:
-    """Generate tool proposals based on the prompt."""
-    proposals = []
-    prompt_lower = prompt.lower()
-    
-    # Detect create file intent (Improved regex)
-    if 'create' in prompt_lower or 'make' in prompt_lower or 'write' in prompt_lower:
-        if 'file' in prompt_lower or '.py' in prompt_lower or '.txt' in prompt_lower:
-            # Try to extract filename
-            import re
-            # Matches: called test.py, named test.py, file test.py, or just test.py
-            file_match = re.search(r'(?:called|named|file)\s+([a-zA-Z0-9_.-]+)', prompt_lower)
-            
-            # Fallback: look for extension
-            if not file_match:
-                file_match = re.search(r'([a-zA-Z0-9_.-]+\.(?:py|txt|md|json|js|html|css))', prompt_lower)
-                
-            filename = file_match.group(1) if file_match else 'new_file.txt'
-            
-            proposals.append({
-                "tool_id": str(uuid.uuid4()),
-                "tool_type": "create_file",
-                "description": f"Create file: {filename}",
-                "parameters": {
-                    "path": filename,
-                    "content": f"# {filename}\n# Created by AI assistant based on request: {prompt}\n\nprint('Hello from {filename}!')"
-                },
-                "requires_confirmation": True,
-                "risk_level": "medium"
-            })
-            return proposals # Return immediately to avoid duplicates
-    
-    # Detect run command intent
-    if 'run' in prompt_lower or 'execute' in prompt_lower:
-        if 'command' in prompt_lower or 'script' in prompt_lower or 'ls' in prompt_lower or 'echo' in prompt_lower:
-            import re
-            cmd_match = re.search(r'(?:run|execute|command)\s+(?:[:"\']\s*)?(.+?)(?:["\']|$|\n)', prompt_lower)
-            command = cmd_match.group(1).strip() if cmd_match else 'ls -la'
-            
-            # Clean up command
-            command = command.replace("the command", "").strip()
-            
-            proposals.append({
-                "tool_id": str(uuid.uuid4()),
-                "tool_type": "run_command",
-                "description": f"Run command: {command}",
-                "parameters": {"command": command},
-                "requires_confirmation": True,
-                "risk_level": "high"
-            })
-            return proposals
-
-    # Detect list files
-    if 'list' in prompt_lower and ('file' in prompt_lower or 'director' in prompt_lower or 'ls' in prompt_lower):
-        proposals.append({
-            "tool_id": str(uuid.uuid4()),
-            "tool_type": "list_directory",
-            "description": "List current directory",
-            "parameters": {"path": "."},
-            "requires_confirmation": True,
-            "risk_level": "low"
-        })
-        return proposals
-        
-    return proposals
+# Intent detection functions removed in favor of Native Tool Calling
 
 
 def execute_approved_tools(
@@ -214,7 +170,13 @@ def execute_approved_tools(
     return results
 
 
-# ============ Main Unified Endpoint ============
+    return results
+
+
+def yield_text_chunks(text: str, chunk_size: int = 20):
+    """Yield text in small chunks to simulate streaming."""
+    for i in range(0, len(text), chunk_size):
+        yield text[i:i + chunk_size]
 
 @router.post("/api/generate", response_model=None)
 async def unified_generate(
@@ -311,97 +273,100 @@ async def unified_generate(
             action_results=results
         )
     
-    # ===== CASE 2: Streaming request =====
-    if request.stream:
-        return StreamingResponse(
-            stream_generator(
-                client=client,
-                prompt=request.prompt,
-                model=model,
-                max_tokens=request.max_tokens,
-                temperature=request.temperature
-            ),
-            media_type="text/plain"
-        )
-    
-    # ===== CASE 3: Detect intent and route =====
-    intent = detect_intent(request.prompt)
-    
-    # If tool use is needed, generate proposals and ask for confirmation
-    if intent == 'tool_use':
-        proposals = generate_tool_proposals(request.prompt)
-        
-        if proposals:
-            session_id = str(uuid.uuid4())
-            _sessions[session_id] = {
-                "prompt": request.prompt,
-                "pending_actions": proposals,
-                "created_at": datetime.utcnow().isoformat()
-            }
-            
-            # Build response text
-            action_descriptions = [p.get("description", "") for p in proposals]
-            output = f"I'll help you with that. Here are the actions I need to perform:\n\n"
-            for i, desc in enumerate(action_descriptions, 1):
-                risk = proposals[i-1].get("risk_level", "medium")
-                output += f"{i}. {desc} [Risk: {risk}]\n"
-            output += f"\nPlease confirm by sending:\n"
-            output += f'{{"session_id": "{session_id}", "confirm": true, "approvals": ['
-            output += ', '.join([f'{{"tool_id": "{p["tool_id"]}", "approved": true}}' for p in proposals])
-            output += ']}'
-            
-            return UnifiedResponse(
-                request_id=request_id,
-                output=output,
-                model=model,
-                action_required=True,
-                pending_actions=proposals,
-                session_id=session_id
-            )
-    
-    # ===== CASE 4: Simple text generation =====
-    # Log to database
-    request_record = None
-    if db and db.client:
-        try:
-            request_record = db.create_request(
-                prompt=request.prompt,
-                model=model,
-                stream=request.stream,
-                user_id=None
-            )
-        except Exception as e:
-            logger.error(f"Failed to log request: {e}")
+    # ===== CASE 2 & 3: Smart Agent & Streaming =====
+    # Strategy: We generate synchronously first to check for Tool Calls.
+    # - If Tools needed: Return JSON (UnifiedResponse) so client gets session_id.
+    # - If Text only: Return StreamingResponse (simulated) if stream=True, else JSON.
     
     try:
+        # Call the model WITH tools (Synchronous)
         result = client.generate_text(
             prompt=request.prompt,
             model=model,
             max_tokens=request.max_tokens,
-            temperature=request.temperature
+            temperature=request.temperature,
+            tools=NATIVE_TOOLS
         )
         
-        # Update database
-        if db and db.client and request_record:
-            try:
-                db.update_request_status(
-                    request_id=request_record.get("id", ""),
-                    status="done",
-                    partial_output=result.get("output", ""),
-                    completed_at=datetime.utcnow().isoformat()
-                )
-            except Exception as e:
-                logger.error(f"Failed to update request: {e}")
+        raw_tool_calls = result.get("tool_calls")
         
+        # 3A. Tool Actions Required -> Return JSON
+        if raw_tool_calls:
+            proposals = []
+            for tool_call in raw_tool_calls:
+                func_name = tool_call.function.name
+                try:
+                    func_args = json.loads(tool_call.function.arguments)
+                except:
+                    func_args = {}
+                
+                # Map to our ToolTypes
+                risk = "low"
+                desc = f"Call {func_name}"
+                
+                if func_name == "create_file":
+                    risk = "medium"
+                    desc = f"Create file: {func_args.get('path', 'unknown')}"
+                elif func_name == "run_command":
+                    risk = "high"
+                    desc = f"Run command: {func_args.get('command')}"
+                elif func_name == "list_directory":
+                    desc = f"List directory: {func_args.get('path')}"
+
+                proposals.append({
+                    "tool_id": str(uuid.uuid4()),
+                    "tool_type": func_name,
+                    "description": desc,
+                    "parameters": func_args,
+                    "requires_confirmation": True,
+                    "risk_level": risk,
+                    "native_tool_call_id": tool_call.id
+                })
+            
+            if proposals:
+                session_id = str(uuid.uuid4())
+                _sessions[session_id] = {
+                    "prompt": request.prompt,
+                    "pending_actions": proposals,
+                    "created_at": datetime.utcnow().isoformat()
+                }
+                
+                output = f"I need to perform the following actions:\n\n"
+                for i, p in enumerate(proposals, 1):
+                    output += f"{i}. {p['description']} [Risk: {p['risk_level']}]\n"
+                
+                if result.get("output"):
+                    output = f"{result['output']}\n\n{output}"
+
+                return UnifiedResponse(
+                    request_id=request_id,
+                    output=output,
+                    model=model,
+                    action_required=True,
+                    pending_actions=proposals,
+                    session_id=session_id
+                )
+
+        # 3B. Text Only -> Stream or Return JSON
+        text_output = result.get("output") or ""
+        
+        if request.stream:
+            # User wants streaming. We simulate it with the text we already generated.
+            return StreamingResponse(
+                yield_text_chunks(text_output),
+                media_type="text/plain"
+            )
+        
+        # Default JSON return
         return UnifiedResponse(
             request_id=result.get("request_id", request_id),
-            output=result.get("output", ""),
+            output=text_output,
             model=result.get("model", model),
             action_required=False,
             pending_actions=[],
             usage=result.get("usage")
         )
-        
+
     except Exception as e:
         logger.error(f"Generation error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

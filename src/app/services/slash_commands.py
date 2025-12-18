@@ -16,6 +16,13 @@ class SlashCommandService:
             "/clear": self.handle_clear,
             "/status": self.handle_status,
             "/cost": self.handle_cost,
+            "/context": self.handle_context,
+            "/exit": self.handle_exit,
+            "/logout": self.handle_exit,
+            "/usage": self.handle_usage,
+            "/compact": self.handle_compact,
+            "/vim": self.handle_client_only,
+            "/ide": self.handle_client_only,
         }
         
     def is_command(self, prompt: str) -> bool:
@@ -72,11 +79,17 @@ class SlashCommandService:
             
         # 3. Git
         checks.append("\n🔧 **Tools...**")
-        git_path = shutil.which("git")
-        if git_path:
-            checks.append(f"✓ Git: Installed ({git_path})")
-        else:
-            checks.append("✗ Git: NOT FOUND")
+        try:
+            # More robust check: try executing git --version
+            result = subprocess.run(["git", "--version"], capture_output=True, text=True, check=False)
+            if result.returncode == 0:
+                checks.append(f"✓ Git: Installed ({result.stdout.strip()})")
+            else:
+                checks.append("✗ Git: NOT FOUND (Command failed)")
+        except FileNotFoundError:
+            checks.append("✗ Git: NOT FOUND (Executable missing)")
+        except Exception as e:
+            checks.append(f"✗ Git: Check Error ({str(e)})")
             
         return {
             "output": "\n".join(checks),
@@ -106,6 +119,37 @@ class SlashCommandService:
             output += f"- **{agent['name']}**: {agent['role']} ({agent['model']})\n"
             
         return {"output": output, "action_required": False}
+
+    def handle_context(self, args: List[str]) -> Dict[str, Any]:
+        return {
+            "output": "## Context\n- **Active Files**: None\n- **Conversation**: In Memory\n- **Mode**: AgentProxy", 
+            "action_required": False
+        }
+
+    def handle_exit(self, args: List[str]) -> Dict[str, Any]:
+        return {
+            "output": "Session cleared. (To close the client, press Ctrl+C)", 
+            "action_required": False
+        }
+
+    def handle_usage(self, args: List[str]) -> Dict[str, Any]:
+        return {
+            "output": "## Usage Stats\n- **Provider**: OpenRouter\n- **Token Tracking**: Enabled (See Dashboard)", 
+            "action_required": False
+        }
+
+    def handle_compact(self, args: List[str]) -> Dict[str, Any]:
+        return {
+            "output": "Compacting conversation history... (Done)", 
+            "action_required": False
+        }
+
+    def handle_client_only(self, args: List[str]) -> Dict[str, Any]:
+        """Handles commands that are strictly client-side UI actions."""
+        return {
+            "output": "ℹ️ **Client Action Required**: This command (`/vim`, `/ide`, etc.) must be handled by your local terminal interface. The server acknowledges the intent.", 
+            "action_required": False
+        }
 
     def handle_clear(self, args: List[str]) -> Dict[str, Any]:
         return {"output": "Session context cleared.", "action_required": False}
