@@ -188,7 +188,7 @@ def main():
             # 2. Loop
             prompt_text = "\033[1;32mNexus> \033[0m"
             if auth_config: 
-                 prompt_text = f"\033[1;32mNexus({auth_config['email'][:5]..})> \033[0m"
+                 prompt_text = f"\033[1;32mNexus({auth_config['email'][:5]}..)> \033[0m"
             
             prompt = input(prompt_text).strip()
             
