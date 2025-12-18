@@ -21,7 +21,8 @@ if (-not (Test-Path $InstallDir)) {
 Write-Host "Downloading client..."
 try {
     Invoke-WebRequest -Uri "$RepoUrl/src/client/cli.py" -OutFile $ClientScript
-} catch {
+}
+catch {
     Write-Error "Failed to download client script. Please check your internet connection."
 }
 
@@ -32,8 +33,8 @@ if (-not (Test-Path $VenvDir)) {
 }
 
 # 4. Install Dependencies
-Write-Host "Installing dependencies (requests)..."
-& $PythonExe -m pip install requests --quiet
+Write-Host "Installing dependencies (requests, boto3)..."
+& $PythonExe -m pip install requests boto3 --quiet
 
 # 5. Create 'nexus' command (Shim)
 $ShimPath = "$InstallDir\nexus.cmd"
