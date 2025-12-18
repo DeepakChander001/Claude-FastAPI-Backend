@@ -109,31 +109,50 @@ class SlashCommandService:
         return {"output": "Config editing not yet implemented via slash command (security restriction).", "action_required": False}
 
     def handle_agents(self, args: List[str]) -> Dict[str, Any]:
-        agents = [
-            {"name": "claude", "role": "General Assistant", "model": self.settings.DEFAULT_MODEL},
-            {"name": "coder", "role": "Specialist Coder", "model": "deepseek/deepseek-coder"},
-            {"name": "doctor", "role": "System Diagnostician", "model": self.settings.DEFAULT_MODEL},
+        # Defined agents (mapped to "Built-in" style)
+        built_ins = [
+            {"name": "general-purpose", "model": "deepseek-chat", "desc": "claude"},
+            {"name": "coder", "model": "deepseek-coder", "desc": "specialist"},
+            {"name": "doctor", "model": "system", "desc": "diagnostician"},
         ]
         
         # Case 1: Switching Agent
         if args:
             target = args[0].lower()
-            selected = next((a for a in agents if a["name"] == target), None)
+            # Loose matching for user convenience
+            selected = next((a for a in built_ins if a["name"] in target or a["desc"] in target), None)
+            
             if selected:
                 return {
-                    "output": f"✅ Switched persona to **{selected['name'].title()}** ({selected['role']}).\n(Note: This sets the context for future messages in this session)",
+                    "output": f"✅ Switched active persona to **{selected['name']}** • {selected['model']}",
                     "action_required": False
                 }
             else:
                  return {
-                    "output": f"❌ Agent '{target}' not found. Available: {', '.join(a['name'] for a in agents)}",
+                    "output": f"❌ Agent '{target}' not found.",
                     "action_required": False
                 }
 
-        # Case 2: Listing Agents
-        output = "## Available Agents\n"
-        for agent in agents:
-            output += f"- **{agent['name']}**: {agent['role']} ({agent['model']})\n"
+        # Case 2: Listing Agents (TUI Style Replica)
+        output = """# Agents
+No custom agents found
+
+> **Create new agent**
+
+No custom agents found. Create specialized subagents that the system can delegate to.
+Each subagent has its own context window, custom system prompt, and specific tools.
+Try creating: Code Reviewer, Code Simplifier, Security Reviewer, Tech Lead, or UX Reviewer.
+
+---
+
+**Built-in (always available):**"""
+        
+        for agent in built_ins:
+            # Format: name • model
+            output += f"\n- **{agent['name']}** • {agent['model']}"
+            
+        # Add footer simulation
+        output += "\n\n_Press ↑↓ to navigate • Enter to select • Esc to go back_"
             
         return {"output": output, "action_required": False}
 
