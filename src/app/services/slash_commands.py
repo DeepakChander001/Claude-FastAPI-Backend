@@ -23,6 +23,7 @@ class SlashCommandService:
             "/exit": self.handle_exit,
             "/logout": self.handle_exit,
             "/compact": self.handle_compact,
+            "/install-github-app": self.handle_install_github_app,
         }
         
         # 1. Register Type C (Visual Mocks)
@@ -229,6 +230,38 @@ Try creating: Code Reviewer, Code Simplifier, Security Reviewer, Tech Lead, or U
             "action_required": True, 
             "execute_llm_call": True 
         }
+
+    def handle_install_github_app(self, args: List[str]) -> Dict[str, Any]:
+        """
+        Mimics the detailed setup warnings from Claude Code.
+        Checks for 'gh' CLI and authentication status.
+        """
+        gh_path = shutil.which("gh")
+        
+        output = "!! Setup Warnings\n"
+        output += "We found some potential issues, but you can continue anyway\n"
+        output += "           ments                                      pull request\n"
+        
+        if not gh_path:
+            output += "GitHub CLI not found as\n"
+            output += "GitHub CLI (gh) does not appear to be installed or accessible.\n\n"
+            output += "• Install GitHub CLI from https://cli.github.com/\n"
+            output += "• macOS: brew install gh\n"
+            output += "• Windows: winget install --id GitHub.cli\n"
+            output += "• Linux: See installation instructions at https://github.com/cli/cli#installation\n\n"
+        
+        # Simulating unauthenticated state for parity with screenshot
+        output += "GitHub CLI not authenticated\n"
+        output += "GitHub CLI does not appear to be authenticated.\n\n"
+        output += "• Run: gh auth login\n"
+        output += "• Follow the prompts to authenticate with GitHub\n"
+        output += "• Or set up authentication using environment variables or other methods\n\n"
+        
+        output += "Press Enter to continue anyway, or Ctrl+C to exit and fix issues\n\n"
+        output += "You can also try the manual setup steps if needed:\n"
+        output += "https://github.com/anthropics/claude-code-action/blob/main/docs/setup.md"
+
+        return {"output": output, "action_required": False}
 
     # --- Git Context Helpers ---
     def _run_git(self, args: List[str]) -> str:
