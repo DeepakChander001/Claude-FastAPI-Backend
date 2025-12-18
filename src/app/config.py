@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     ZAI_API_KEY: Optional[str] = None # Z.AI API Key (Primary Provider)
     OPENROUTER_API_KEY: Optional[str] = None # OpenRouter Key (DeepSeek)
     USE_MOCK_CLIENT: bool = True
-    DEFAULT_MODEL: str = "GLM-4.6"
+    DEFAULT_MODEL: str = "deepseek/deepseek-chat"
     
     # AWS Secrets Manager Configuration
     AWS_SECRETS_MANAGER_ENABLED: bool = False

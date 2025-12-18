@@ -58,9 +58,8 @@ class RealAnthropicClient:
         Map model names for specific providers.
         """
         if self.base_url and "openrouter" in self.base_url:
-            # Force DeepSeek V2/V3 (using V2 Coder model as requested safe V2 option)
-            # Or use 'deepseek/deepseek-chat' which is intelligent general purpose
-            return "deepseek/deepseek-coder"
+            # Force DeepSeek Chat (V2.5/V3) as it includes coding & reasoning
+            return "deepseek/deepseek-chat"
             
         if self.base_url and "z.ai" in self.base_url:
             return "GLM-4.6"
