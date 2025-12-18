@@ -229,6 +229,7 @@ async def unified_generate(
     
     # ===== CASE 0: Slash Commands =====
     # We pass the active_agent state to the service
+    global ACTIVE_AGENT
     slash_service = SlashCommandService(settings)
     slash_service.active_agent = ACTIVE_AGENT 
     
