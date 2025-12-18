@@ -133,13 +133,26 @@ async def approve_code(user_code: str = Form(...)):
     # In real life, this would actually redirect to Google first, handle callback, then do this.
     # To satisfy "User Perspective", we act AS IF we did that.
     
-    # Mock User
-    mock_email = "user@gmail.com"
-    mock_id = f"u-{uuid.uuid4().hex[:8]}"
+    # Mock User Email (Simulated for this flow, in real OAuth we get this from Google)
+    user_email = "user@gmail.com" 
     
-    DEVICE_CODES[target_device]["status"] = "success"
-    DEVICE_CODES[target_device]["user_id"] = mock_id
-    DEVICE_CODES[target_device]["email"] = mock_email
+    # === REAL SUPABASE PERSISTENCE ===
+    try:
+        from src.app.services.user_service import UserService
+        user_service = UserService()
+        result = user_service.get_or_create_user(user_email)
+        
+        real_user = result["user"]
+        is_new = result["is_new"]
+        
+        DEVICE_CODES[target_device]["status"] = "success"
+        DEVICE_CODES[target_device]["user_id"] = real_user["id"]
+        DEVICE_CODES[target_device]["email"] = real_user["email"]
+        DEVICE_CODES[target_device]["is_new"] = is_new # Pass flag to CLI
+        
+    except Exception as e:
+        logger.error(f"Auth Error: {e}")
+        return HTMLResponse(f"<h1>Error: {str(e)}</h1>")
     
     return HTMLResponse("""
     <div style="text-align: center; font-family: sans-serif; padding-top: 50px;">

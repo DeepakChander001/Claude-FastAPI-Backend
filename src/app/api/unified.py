@@ -227,10 +227,20 @@ async def unified_generate(
     # Get database client for logging
     db = get_db_client(settings)
     
-    # Get database client for logging
-    db = get_db_client(settings)
+    # 1. Parse Input
+    prompt_text = request.prompt
     
-    # ===== CASE 0: Slash Commands =====
+    # 2. Log Request to Supabase w/ User Context (if available)
+    # Note: CLI currently doesn't pass header, but we are setting up the structure.
+    # Future TODO: extract user_id from headers/token.
+    user_id = None 
+    
+    log_entry = db.create_request(
+        prompt=prompt_text[:2000], 
+        model=ACTIVE_MODEL_ID,
+        stream=request.stream,
+        user_id=user_id
+    )
     # We pass the active_agent state to the service
     slash_service = SlashCommandService(settings)
     slash_service.active_agent = ACTIVE_AGENT 
