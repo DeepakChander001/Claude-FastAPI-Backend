@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 AGENTS: Dict[str, Dict[str, Any]] = {
     "claude": {
-        "name": "Claue (General)",
+        "name": "Claude (General)",
         "model": "deepseek/deepseek-chat",
         "description": "General purpose assistant.",
         "system_prompt": "You are a helpful AI assistant. You can create files and run commands."
