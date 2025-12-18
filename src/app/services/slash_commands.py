@@ -1,4 +1,5 @@
 import os
+import os
 import shutil
 import subprocess
 import time
@@ -24,6 +25,9 @@ class SlashCommandService:
             "/logout": self.handle_exit,
             "/compact": self.handle_compact,
             "/install-github-app": self.handle_install_github_app,
+            "/login": self.handle_login,
+            "/init": self.handle_init,
+            "/model": self.handle_model,
         }
         
         # 1. Register Type C (Visual Mocks)
@@ -262,6 +266,54 @@ Try creating: Code Reviewer, Code Simplifier, Security Reviewer, Tech Lead, or U
         output += "https://github.com/anthropics/claude-code-action/blob/main/docs/setup.md"
 
         return {"output": output, "action_required": False}
+
+    def handle_login(self, args: List[str]) -> Dict[str, Any]:
+        """
+        Headless Login Mock: Checks for environment variable.
+        """
+        api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        if api_key:
+            masked_key = f"{api_key[:8]}...{api_key[-4:]}"
+            return {
+                "output": f"✅ Already logged in (via Environment Variable).\nKey: {masked_key}", 
+                "action_required": False
+            }
+        return {
+            "output": "❌ Login Failed: No API Key found in environment variables.\nPlease set OPENROUTER_API_KEY or ANTHROPIC_API_KEY.", 
+            "action_required": False
+        }
+
+    def handle_init(self, args: List[str]) -> Dict[str, Any]:
+        """
+        Real implementation: Creates CLAUDE.md if missing.
+        """
+        if os.path.exists("CLAUDE.md"):
+            return {"output": "CLAUDE.md already exists in the current directory.", "action_required": False}
+        
+        content = """# Claude Code Guide
+
+## Commands
+- `/help`: Show available commands
+- `/doctor`: Check system health
+- `/review`: AI Code Review
+- `/agents`: Manage AI subagents
+
+## Build/Test
+> Add your build and test commands here
+"""
+        try:
+            with open("CLAUDE.md", "w", encoding="utf-8") as f:
+                f.write(content)
+            return {"output": "✅ Initialized CLAUDE.md with codebase documentation.", "action_required": False}
+        except Exception as e:
+            return {"output": f"❌ Failed to create CLAUDE.md: {str(e)}", "action_required": False}
+
+    def handle_model(self, args: List[str]) -> Dict[str, Any]:
+        """
+        Mock model switcher.
+        """
+        # In a full implementation, this might update a config file or session state.
+        return {"output": "Model set to: deepseek/deepseek-chat (V3)", "action_required": False}
 
     # --- Git Context Helpers ---
     def _run_git(self, args: List[str]) -> str:

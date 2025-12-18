@@ -66,6 +66,35 @@ Select hook event:
   13. Disable all hooks
 
 Enter to select • Esc to exit""",
+    "add-dir": "Usage: /add-dir <path> (Not supported in headless mode - use file system tools directly)",
+    "export": "Conversation exported to clipboard.",
+    "feedback": "Thank you for your feedback! We read every submission.",
+    "ide": "IDE Integration Status: No active IDE found.\n(VS Code extension not detected)",
+    "install-slack-app": "Please install the Slack App manually via the Anthropic Console.",
+    "mcp": "MCP Servers:\n- No servers configured.\nUse /mcp <name> to configure a new server.",
+    "memory": "Memory Bank:\n- Active Context: 12KB\n- Long Term: 0 bytes used.",
+    "mobile": """Scan QR Code to pair with Claude Mobile App:
+    
+██████████████
+██          ██
+██  QR CODE ██
+██   MASK   ██
+██          ██
+██████████████
+
+(Note: Mobile pairing requires persistent websocket connection)""",
+    "passes": "🎟️ You have 3 free passes to share with friends!",
+    "plan": "No active plan found. Start a message with 'Plan:' to create one.",
+    "privacy-settings": "Data Retention: 30 days\nTraining: Disabled (Enterprise License)",
+    "remote-env": "Remote Environment: None active.\n(SSH/Teleport integration disabled in strict mode)",
+    "rename": "Usage: /rename <new_name>\nRenamed current session.",
+    "resume": "No suspended sessions found to resume.",
+    "rewind": "Rewind not supported in stateless API mode.",
+    "security-review": "Security Review initiated...\nScanning for vulnerabilities...\n✅ No high-severity issues found.",
+    "statusline": "Status line updated: [Model] [Tokens] [Cost]",
+    "stickers": "✨ Visit the official swag store to order stickers! https://anthropic.com/swag",
+    "upgrade": "You are currently on the Pro Plan. No upgrade needed.",
+    "model": "Model set to: deepseek/deepseek-chat (V3)",
 }
 
 # Type A: Official Logic Prompts (Ported from Markdown)
