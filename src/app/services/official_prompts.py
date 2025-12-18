@@ -38,6 +38,34 @@ Extension: Not detected
 Usage: claude --chrome or claude --no-chrome
 
 Enter to confirm • Esc to cancel""",
+    "hooks": """Hook Configuration
+
+Hooks are shell commands you can register to run during Claude Code processing. Docs
+
+• Each hook event has its own input and output behavior
+• Multiple hooks can be registered per event, executed in parallel
+• Any changes to hooks outside of /hooks require a restart
+• Timeout: 60 seconds
+
+⚠ Hooks execute shell commands with your full user permissions. This can pose security risks, so only use hooks from trusted sources.
+Learn more: https://code.claude.com/docs/en/hooks
+
+Select hook event:
+> 1.  PreToolUse - Before tool execution
+  2.  PostToolUse - After tool execution
+  3.  PostToolUseFailure - After tool execution fails
+  4.  Notification - When notifications are sent
+  5.  UserPromptSubmit - When the user submits a prompt
+  6.  SessionStart - When a new session is started
+  7.  Stop - Right before Claude concludes its response
+  8.  SubagentStart - When a subagent (Task tool call) is started
+  9.  SubagentStop - Right before a subagent (Task tool call) concludes its response
+  10. PreCompact - Before conversation compaction
+  11. SessionEnd - When a session is ending
+  12. PermissionRequest - When a permission dialog is displayed
+  13. Disable all hooks
+
+Enter to select • Esc to exit""",
 }
 
 # Type A: Official Logic Prompts (Ported from Markdown)
