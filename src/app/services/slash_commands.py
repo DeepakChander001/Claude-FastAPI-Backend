@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Optional
 from src.app.config import Settings
 
 from src.app.services.agent_prompts import AGENTS, get_agent_config
+from src.app.services.official_prompts import VISUAL_MOCKS, get_command_output
 
 class SlashCommandService:
     def __init__(self, settings: Settings):
@@ -16,18 +17,17 @@ class SlashCommandService:
             "/help": self.handle_help,
             "/config": self.handle_config,
             "/agents": self.handle_agents,
-            "/agent": self.handle_agents, # Alias for switching
+            "/agent": self.handle_agents,
             "/clear": self.handle_clear,
-            "/status": self.handle_status,
-            "/cost": self.handle_cost,
             "/context": self.handle_context,
             "/exit": self.handle_exit,
             "/logout": self.handle_exit,
-            "/usage": self.handle_usage,
             "/compact": self.handle_compact,
-            "/vim": self.handle_client_only,
-            "/ide": self.handle_client_only,
         }
+        
+        # dynamic registration of visual mocks
+        for cmd in VISUAL_MOCKS.keys():
+            self.commands[f"/{cmd}"] = self.handle_visual_mock
         
     def is_command(self, prompt: str) -> bool:
         return prompt.strip().startswith("/")
@@ -153,21 +153,53 @@ Try creating: Code Reviewer, Code Simplifier, Security Reviewer, Tech Lead, or U
             
         return {"output": output, "action_required": False}
 
+    def handle_visual_mock(self, args: List[str]) -> Dict[str, Any]:
+        """Generic handler for Visual Mocks (Type C)."""
+        # We need to find which command triggered this to get the right output
+        # NOTE: In a cleaner refactor, we'd pass the command name, but for now we look up the output based on keys.
+        # Ideally, we should change the signature of handlers or use partials, but let's stick to the current contract.
+        
+        # Hack: Since we don't know the command name here easily without changing execute(), 
+        # we will assume the command is passed as arg or we update execute() later. 
+        # actually, let's update simple execute() to pass command to handler? 
+        # No, let's just use a trick or simply return a generic message if we can't find it?
+        # WAIT: execute() calls `return handler(args)`.
+        
+        # Better approach: We explicitly define the method for each if we want specific text, 
+        # OR we change execute to pass the command name.
+        # Let's stick to specific handlers or use a closure.
+        return {"output": "Mock command executed.", "action_required": False}
+
+    def execute(self, prompt: str) -> Dict[str, Any]:
+        parts = prompt.strip().split()
+        command = parts[0].lower()
+        args = parts[1:]
+        
+        handler = self.commands.get(command)
+        if handler:
+            # Special Handling for Visual Mocks to inject the command name
+            if handler == self.handle_visual_mock:
+                return self.handle_visual_mock(args, command_name=command[1:])
+            return handler(args)
+        
+        return {
+            "output": f"Command '{command}' not recognized. Try `/help` to see available commands.",
+            "action_required": False
+        }
+
+    def handle_visual_mock(self, args: List[str], command_name: str = "") -> Dict[str, Any]:
+        output = get_command_output(command_name)
+        return {"output": output, "action_required": False}
+        
     def handle_context(self, args: List[str]) -> Dict[str, Any]:
         return {
             "output": "## Context\n- **Active Files**: None\n- **Conversation**: In Memory\n- **Mode**: AgentProxy", 
             "action_required": False
         }
-
+    
     def handle_exit(self, args: List[str]) -> Dict[str, Any]:
         return {
             "output": "Session cleared. (To close the client, press Ctrl+C)", 
-            "action_required": False
-        }
-
-    def handle_usage(self, args: List[str]) -> Dict[str, Any]:
-        return {
-            "output": "## Usage Stats\n- **Provider**: OpenRouter\n- **Token Tracking**: Enabled (See Dashboard)", 
             "action_required": False
         }
 
@@ -177,18 +209,5 @@ Try creating: Code Reviewer, Code Simplifier, Security Reviewer, Tech Lead, or U
             "action_required": False
         }
 
-    def handle_client_only(self, args: List[str]) -> Dict[str, Any]:
-        """Handles commands that are strictly client-side UI actions."""
-        return {
-            "output": "ℹ️ **Client Action Required**: This command (`/vim`, `/ide`, etc.) must be handled by your local terminal interface. The server acknowledges the intent.", 
-            "action_required": False
-        }
-
     def handle_clear(self, args: List[str]) -> Dict[str, Any]:
         return {"output": "Session context cleared.", "action_required": False}
-
-    def handle_status(self, args: List[str]) -> Dict[str, Any]:
-        return {"output": "System Status: ONLINE\nMode: Agentic Proxy", "action_required": False}
-
-    def handle_cost(self, args: List[str]) -> Dict[str, Any]:
-        return {"output": "Cost tracking is not yet linked to the billing API.", "action_required": False}
