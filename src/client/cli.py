@@ -23,7 +23,7 @@ def print_markdown(text):
         print(text)
 
 def main():
-    print("\033[1;35mClaude Code CLI (Headless Interface)\033[0m")
+    print("\033[1;36mNexus CLI (Powered by Claude-FastAPI-Backend)\033[0m")
     print("Type /exit to quit.\n")
 
     session_id = None

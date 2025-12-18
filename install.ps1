@@ -35,16 +35,16 @@ if (-not (Test-Path $VenvDir)) {
 Write-Host "Installing dependencies (requests)..."
 & $PythonExe -m pip install requests --quiet
 
-# 5. Create 'claude' command (Shim)
-$ShimPath = "$InstallDir\claude.cmd"
+# 5. Create 'nexus' command (Shim)
+$ShimPath = "$InstallDir\nexus.cmd"
 $ShimContent = "@echo off`r`n`"$PythonExe`" `"$ClientScript`" %*"
 Set-Content -Path $ShimPath -Value $ShimContent
 
 Write-Host "`n✅ Installation Complete!" -ForegroundColor Green
-Write-Host "You can now run 'claude' from this folder."
+Write-Host "You can now run 'nexus' from this folder."
 Write-Host "To run it from ANYWHERE, add this folder to your PATH:"
 Write-Host "  $InstallDir" -ForegroundColor Yellow
 
 # Optional: Attempt to modify User PATH (Requires restart to take effect)
 [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$InstallDir", "User")
-Write-Host "NOTE: You may need to restart your terminal for the 'claude' command to work globally." -ForegroundColor Yellow
+Write-Host "NOTE: You may need to restart your terminal for the 'nexus' command to work globally." -ForegroundColor Yellow
