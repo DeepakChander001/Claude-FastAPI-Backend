@@ -13,6 +13,7 @@ class SlashCommandService:
             "/help": self.handle_help,
             "/config": self.handle_config,
             "/agents": self.handle_agents,
+            "/agent": self.handle_agents, # Alias for switching
             "/clear": self.handle_clear,
             "/status": self.handle_status,
             "/cost": self.handle_cost,
@@ -114,6 +115,22 @@ class SlashCommandService:
             {"name": "doctor", "role": "System Diagnostician", "model": self.settings.DEFAULT_MODEL},
         ]
         
+        # Case 1: Switching Agent
+        if args:
+            target = args[0].lower()
+            selected = next((a for a in agents if a["name"] == target), None)
+            if selected:
+                return {
+                    "output": f"✅ Switched persona to **{selected['name'].title()}** ({selected['role']}).\n(Note: This sets the context for future messages in this session)",
+                    "action_required": False
+                }
+            else:
+                 return {
+                    "output": f"❌ Agent '{target}' not found. Available: {', '.join(a['name'] for a in agents)}",
+                    "action_required": False
+                }
+
+        # Case 2: Listing Agents
         output = "## Available Agents\n"
         for agent in agents:
             output += f"- **{agent['name']}**: {agent['role']} ({agent['model']})\n"
