@@ -15,6 +15,7 @@ VISUAL_MOCKS = {
     "theme": "Theme preference saved.",
     "permissions": "Permission rules updated.",
     "stats": "Usage Statistics:\n- Sessions: 12\n- Tokens: 1.5M\n- Cost: $4.20 (Simulated)",
+    "usage": "## Usage Stats\n- **Provider**: OpenRouter\n- **Token Tracking**: Enabled (See Dashboard)",
     "tasks": "No background tasks running.",
     "todos": "No TODOs found in active context.",
     "install-github-app": "Please install the GitHub App manually via the Anthropic Console.",
