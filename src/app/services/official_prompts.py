@@ -25,6 +25,19 @@ VISUAL_MOCKS = {
     "pr-comments": "No active Pull Request found to fetch comments from.",
     "review": "Code Review initiated. (Logic placeholder - waiting for DeepSeek connection).",
     "commit": "Commit message generation initiated. (Logic placeholder).",
+    "chrome": """Claude in Chrome (Beta)
+
+Claude in Chrome works with the Chrome extension to let you control your browser directly from Claude Code. Navigate websites, fill forms, capture screenshots, record GIFs, and debug with console logs and network requests.
+
+Status: Disabled
+Extension: Not detected
+
+> Install Chrome extension
+  Enabled by default: No
+
+Usage: claude --chrome or claude --no-chrome
+
+Enter to confirm • Esc to cancel""",
 }
 
 # Type A: Official Logic Prompts (Ported from Markdown)
