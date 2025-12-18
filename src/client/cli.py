@@ -16,7 +16,7 @@ except ImportError:
     HAS_BOTO3 = False
 
 # Default Configuration
-DEFAULT_API_URL = "http://16.171.194.43:8000/api/generate"
+DEFAULT_API_URL = "http://16.171.194.43:80/api/generate"
 CONFIG_DIR = Path.home() / ".nexus"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
