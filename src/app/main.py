@@ -10,6 +10,7 @@ Single endpoint /api/generate handles all functionality:
 from fastapi import FastAPI
 from src.app.api.unified import router as unified_router
 from src.app.api.agentic import router as agentic_router
+from src.app.api.auth import router as auth_router
 
 app = FastAPI(
     title="Claude Proxy API",
@@ -19,6 +20,9 @@ app = FastAPI(
 
 # Include the unified router (main endpoint: /api/generate)
 app.include_router(unified_router)
+
+# Include Authentication Router
+app.include_router(auth_router)
 
 # Keep agentic router for backward compatibility
 app.include_router(agentic_router)
