@@ -221,6 +221,9 @@ async def unified_generate(
     model = request.model or settings.DEFAULT_MODEL
     request_id = str(uuid.uuid4())
     
+    # Declare global state usage at the top
+    global ACTIVE_AGENT
+    
     # Get database client for logging
     db = get_db_client(settings)
     
@@ -229,7 +232,6 @@ async def unified_generate(
     
     # ===== CASE 0: Slash Commands =====
     # We pass the active_agent state to the service
-    global ACTIVE_AGENT
     slash_service = SlashCommandService(settings)
     slash_service.active_agent = ACTIVE_AGENT 
     
@@ -238,7 +240,6 @@ async def unified_generate(
         
         # Check if agent was switched
         if "set_agent" in cmd_result:
-            global ACTIVE_AGENT
             ACTIVE_AGENT = cmd_result["set_agent"]
             
         return UnifiedResponse(
