@@ -24,6 +24,7 @@ from src.app.dependencies import get_settings, get_anthropic_client
 from src.app.services.anthropic_client import AnthropicClientProtocol
 from src.app.db import SupabaseClientWrapper
 from src.app.tools import ToolExecutor, ToolType, TOOL_DEFINITIONS
+from src.app.services.slash_commands import SlashCommandService
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +258,22 @@ async def unified_generate(
     # Get database client for logging
     db = get_db_client(settings)
     
+    # Get database client for logging
+    db = get_db_client(settings)
+    
+    # ===== CASE 0: Slash Commands =====
+    slash_service = SlashCommandService(settings)
+    if slash_service.is_command(request.prompt):
+        cmd_result = slash_service.execute(request.prompt)
+        return UnifiedResponse(
+            request_id=request_id,
+            output=cmd_result.get("output", ""),
+            model="system-slash-command",
+            action_required=cmd_result.get("action_required", False),
+            pending_actions=[],
+            session_id=None
+        )
+
     # ===== CASE 1: User is confirming pending actions =====
     if request.confirm and request.session_id:
         session = _sessions.get(request.session_id)
