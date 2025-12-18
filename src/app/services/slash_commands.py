@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional
 from src.app.config import Settings
 
 from src.app.services.agent_prompts import AGENTS, get_agent_config
-from src.app.services.official_prompts import VISUAL_MOCKS, get_command_output
+from src.app.services.official_prompts import VISUAL_MOCKS, OFFICIAL_LOGIC_PROMPTS, get_command_output
 
 class SlashCommandService:
     def __init__(self, settings: Settings):
@@ -25,9 +25,13 @@ class SlashCommandService:
             "/compact": self.handle_compact,
         }
         
-        # dynamic registration of visual mocks
+        # 1. Register Type C (Visual Mocks)
         for cmd in VISUAL_MOCKS.keys():
             self.commands[f"/{cmd}"] = self.handle_visual_mock
+
+        # 2. Register Type A (Ported Logic)
+        for cmd in OFFICIAL_LOGIC_PROMPTS.keys():
+            self.commands[f"/{cmd}"] = self.handle_ported_logic
         
     def is_command(self, prompt: str) -> bool:
         return prompt.strip().startswith("/")
@@ -177,9 +181,9 @@ Try creating: Code Reviewer, Code Simplifier, Security Reviewer, Tech Lead, or U
         
         handler = self.commands.get(command)
         if handler:
-            # Special Handling for Visual Mocks to inject the command name
-            if handler == self.handle_visual_mock:
-                return self.handle_visual_mock(args, command_name=command[1:])
+            # Special Handling to inject command name
+            if handler == self.handle_visual_mock or handler == self.handle_ported_logic:
+                return handler(args, command_name=command[1:])
             return handler(args)
         
         return {
@@ -190,6 +194,58 @@ Try creating: Code Reviewer, Code Simplifier, Security Reviewer, Tech Lead, or U
     def handle_visual_mock(self, args: List[str], command_name: str = "") -> Dict[str, Any]:
         output = get_command_output(command_name)
         return {"output": output, "action_required": False}
+
+    def handle_ported_logic(self, args: List[str], command_name: str = "") -> Dict[str, Any]:
+        """
+        Generic handler for Type A (Ported Prompts).
+        Matches the context variables expected by OFFICIAL_LOGIC_PROMPTS.
+        """
+        prompt_template = OFFICIAL_LOGIC_PROMPTS.get(command_name)
+        if not prompt_template:
+             return {"output": f"Logic for /{command_name} not found.", "action_required": False}
+
+        # Gather Context
+        git_status = self._get_git_status()
+        git_diff = self._get_git_diff()
+        branch = self._get_git_branch()
+        # Fallback for keys check
+        context_data = {
+            "git_status": git_status,
+            "git_diff": git_diff,
+            "branch": branch,
+            "context": f"Active Context:\nBranch: {branch}\nGit Status:\n{git_status}" 
+        }
+        
+        # Safe formatting
+        try:
+            filled_prompt = prompt_template.format(**context_data)
+        except KeyError as e:
+            filled_prompt = prompt_template + f"\n\n[Context Warning: Missing key {e}]"
+        except Exception as e:
+             filled_prompt = prompt_template + f"\n\n[Context Error: {e}]"
+            
+        return {
+            "output": filled_prompt, 
+            "action_required": True, 
+            "execute_llm_call": True 
+        }
+
+    # --- Git Context Helpers ---
+    def _run_git(self, args: List[str]) -> str:
+        try:
+            res = subprocess.run(["git"] + args, capture_output=True, text=True, check=False)
+            return res.stdout.strip()
+        except Exception:
+            return ""
+
+    def _get_git_status(self) -> str:
+        return self._run_git(["status", "--short"]) or "No changes."
+
+    def _get_git_diff(self) -> str:
+        return self._run_git(["diff", "HEAD"]) or "No diff."
+
+    def _get_git_branch(self) -> str:
+        return self._run_git(["branch", "--show-current"]) or "main"
         
     def handle_context(self, args: List[str]) -> Dict[str, Any]:
         return {

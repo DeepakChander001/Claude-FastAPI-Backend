@@ -27,8 +27,69 @@ VISUAL_MOCKS = {
     "commit": "Commit message generation initiated. (Logic placeholder).",
 }
 
-# Type A/B: Dynamic Logic Helpers
-# (Future: Add actual System Prompts here)
+# Type A: Official Logic Prompts (Ported from Markdown)
+OFFICIAL_LOGIC_PROMPTS = {
+    "review": """
+You are a Code Review Agent.
+Goal: Provide a code review for the given files, following the official Claude Code logic.
+
+STEPS:
+1. Check if PR is closed/draft (Simulated).
+2. Scan for CLAUDE.md compliance.
+3. Launch agents to review changes.
+
+You must Simulate 4 Agents in your reasoning:
+- Agents 1+2: CLAUDE.md compliance
+- Agent 3: Opus bug agent (High Signal Bugs only)
+- Agent 4: Opus bug agent (Logic/Security)
+
+CRITICAL:
+- Only flag HIGH SIGNAL issues (Runtime bugs, clear CLAUDE.md violations).
+- Ignore nitpicks, style suggestions (unless in CLAUDE.md).
+- Verify every issue: If "variable not defined", ensure it is true.
+
+Active Files Context:
+{context}
+
+Format your response exactly like the official tool:
+---
+## Code review
+Found N issues:
+1. <brief description> (CLAUDE.md says: "...")
+<file path>:L<line>
+---
+If no issues:
+---
+## Auto code review
+No issues found. Checked for bugs and CLAUDE.md compliance.
+---
+""",
+
+    "commit": """
+You are a git commit agent.
+Context:
+- Git Status: {git_status}
+- Git Diff: {git_diff}
+
+Task: Create a single git commit based on these changes.
+Capabilities: Call the bash tool to `git commit -m "message"`.
+Do NOT do anything else.
+""",
+
+    "pr-comments": """
+You are a PR management agent.
+Context:
+- Git Status: {git_status}
+- Branch: {branch}
+
+Task:
+1. Commit changes (if any).
+2. Push branch.
+3. Create PR using `gh pr create`.
+
+Output: Sequence of tool calls.
+"""
+}
 
 def get_command_output(command: str) -> str:
     """Retrieve the mock output for a given command."""

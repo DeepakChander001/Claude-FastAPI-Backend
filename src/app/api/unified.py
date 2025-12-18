@@ -241,15 +241,23 @@ async def unified_generate(
         # Check if agent was switched
         if "set_agent" in cmd_result:
             ACTIVE_AGENT = cmd_result["set_agent"]
-            
-        return UnifiedResponse(
-            request_id=request_id,
-            output=cmd_result.get("output", ""),
-            model="system-slash-command",
-            action_required=cmd_result.get("action_required", False),
-            pending_actions=[],
-            session_id=None
-        )
+
+        # Special Case: Command wants to trigger the LLM with a specific prompt (Ported Logic)
+        if cmd_result.get("execute_llm_call"):
+            # We update the prompt with the "Ported" system prompt and fall through
+            # to the standard generation logic below.
+            # We essentially "Rewrite" the user's request from "/review" to "You are a code reviewer..."
+            request.prompt = cmd_result["output"]
+            # Fall through (do not return)
+        else:
+            return UnifiedResponse(
+                request_id=request_id,
+                output=cmd_result.get("output", ""),
+                model="system-slash-command",
+                action_required=cmd_result.get("action_required", False),
+                pending_actions=[],
+                session_id=None
+            )
 
     # ===== CASE 1: User is confirming pending actions =====
     if request.confirm and request.session_id:
