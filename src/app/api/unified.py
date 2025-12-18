@@ -25,7 +25,11 @@ from src.app.services.anthropic_client import AnthropicClientProtocol
 from src.app.db import SupabaseClientWrapper
 from src.app.tools import ToolExecutor, ToolType, TOOL_DEFINITIONS
 from src.app.services.slash_commands import SlashCommandService
+from src.app.services.agent_prompts import get_agent_config
 import json
+
+# Global Active Agent State (In-memory for simplicity)
+ACTIVE_AGENT = "claude"
 
 # Native Tool Definitions (OpenAI Format)
 NATIVE_TOOLS = [
@@ -224,9 +228,18 @@ async def unified_generate(
     db = get_db_client(settings)
     
     # ===== CASE 0: Slash Commands =====
+    # We pass the active_agent state to the service
     slash_service = SlashCommandService(settings)
+    slash_service.active_agent = ACTIVE_AGENT 
+    
     if slash_service.is_command(request.prompt):
         cmd_result = slash_service.execute(request.prompt)
+        
+        # Check if agent was switched
+        if "set_agent" in cmd_result:
+            global ACTIVE_AGENT
+            ACTIVE_AGENT = cmd_result["set_agent"]
+            
         return UnifiedResponse(
             request_id=request_id,
             output=cmd_result.get("output", ""),
@@ -275,14 +288,22 @@ async def unified_generate(
     
     # ===== CASE 2 & 3: Smart Agent & Streaming =====
     # Strategy: We generate synchronously first to check for Tool Calls.
-    # - If Tools needed: Return JSON (UnifiedResponse) so client gets session_id.
-    # - If Text only: Return StreamingResponse (simulated) if stream=True, else JSON.
     
+    # 0. Get Active Agent Configuration
+    agent_config = get_agent_config(ACTIVE_AGENT)
+    system_prompt = agent_config.get("system_prompt", "")
+    target_model = agent_config.get("model", model)
+    
+    # Prepend System Prompt to User Prompt (Simple Injection)
+    # Note: For full robustness, we should use 'system' role in messages, 
+    # but 'prompt' injection works well for DeepSeek V2/V3 compatibility via this client.
+    full_prompt = f"System: {system_prompt}\n\nUser: {request.prompt}"
+
     try:
         # Call the model WITH tools (Synchronous)
         result = client.generate_text(
-            prompt=request.prompt,
-            model=model,
+            prompt=full_prompt,
+            model=target_model,
             max_tokens=request.max_tokens,
             temperature=request.temperature,
             tools=NATIVE_TOOLS

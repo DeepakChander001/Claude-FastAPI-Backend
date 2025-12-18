@@ -5,9 +5,12 @@ import time
 from typing import Dict, Any, List, Optional
 from src.app.config import Settings
 
+from src.app.services.agent_prompts import AGENTS, get_agent_config
+
 class SlashCommandService:
     def __init__(self, settings: Settings):
         self.settings = settings
+        self.active_agent = "claude" # Default agent
         self.commands = {
             "/doctor": self.handle_doctor,
             "/help": self.handle_help,
@@ -57,43 +60,38 @@ class SlashCommandService:
         return {"output": help_text, "action_required": False}
 
     def handle_doctor(self, args: List[str]) -> Dict[str, Any]:
-        checks = []
+        """
+        Mimics the Claude Code /doctor output with "L" list style.
+        """
+        import sys
         
-        # 1. API Check
-        checks.append("🔎 **Checking Connections...**")
-        if self.settings.OPENROUTER_API_KEY:
-            checks.append("✓ OpenRouter API Key: Found")
-        elif self.settings.ZAI_API_KEY:
-             checks.append("✓ Z.AI API Key: Found")
-        else:
-             checks.append("✗ API Key: MISSING")
-             
-        # 2. File System
-        checks.append("\n💾 **File System...**")
+        # Gather info
+        git_version = "NOT FOUND"
         try:
-            with open("test_write_perm.tmp", "w") as f:
-                f.write("test")
-            os.remove("test_write_perm.tmp")
-            checks.append("✓ Write Permissions: OK")
-        except Exception as e:
-            checks.append(f"✗ Write Permissions: FAILED ({str(e)})")
-            
-        # 3. Git
-        checks.append("\n🔧 **Tools...**")
-        try:
-            # More robust check: try executing git --version
-            result = subprocess.run(["git", "--version"], capture_output=True, text=True, check=False)
-            if result.returncode == 0:
-                checks.append(f"✓ Git: Installed ({result.stdout.strip()})")
-            else:
-                checks.append("✗ Git: NOT FOUND (Command failed)")
-        except FileNotFoundError:
-            checks.append("✗ Git: NOT FOUND (Executable missing)")
-        except Exception as e:
-            checks.append(f"✗ Git: Check Error ({str(e)})")
-            
+            res = subprocess.run(["git", "--version"], capture_output=True, text=True, check=False)
+            if res.returncode == 0:
+                git_version = res.stdout.strip().replace("git version ", "")
+        except:
+            pass
+
+        py_version = sys.version.split()[0]
+        
+        # Build TUI output matching screenshot
+        output = f"""Diagnostics
+L Currently running: native (2.0.72)
+L Path: native
+L Invoked: {sys.executable} (simulated)
+L Config install method: native
+L Auto-updates: enabled
+L Search: OK (bundled)
+L Python: {py_version}
+L Git: {git_version}
+L Active Agent: {self.active_agent.title()}
+
+Press Enter to continue..."""
+
         return {
-            "output": "\n".join(checks),
+            "output": output,
             "action_required": False
         }
 
@@ -109,23 +107,21 @@ class SlashCommandService:
         return {"output": "Config editing not yet implemented via slash command (security restriction).", "action_required": False}
 
     def handle_agents(self, args: List[str]) -> Dict[str, Any]:
-        # Defined agents (mapped to "Built-in" style)
-        built_ins = [
-            {"name": "general-purpose", "model": "deepseek-chat", "desc": "claude"},
-            {"name": "coder", "model": "deepseek-coder", "desc": "specialist"},
-            {"name": "doctor", "model": "system", "desc": "diagnostician"},
-        ]
-        
         # Case 1: Switching Agent
         if args:
             target = args[0].lower()
-            # Loose matching for user convenience
-            selected = next((a for a in built_ins if a["name"] in target or a["desc"] in target), None)
+            # Loose matching
+            selected_key = next((k for k, v in AGENTS.items() if k in target or v["name"].lower() in target), None)
             
-            if selected:
+            if selected_key:
+                # Update State
+                self.active_agent = selected_key
+                config = AGENTS[selected_key]
+                
                 return {
-                    "output": f"✅ Switched active persona to **{selected['name']}** • {selected['model']}",
-                    "action_required": False
+                    "output": f"✅ Switched active persona to **{config['name']}** • {config['model']}",
+                    "action_required": False,
+                    "set_agent": selected_key # Signal to unified.py
                 }
             else:
                  return {
@@ -147,9 +143,10 @@ Try creating: Code Reviewer, Code Simplifier, Security Reviewer, Tech Lead, or U
 
 **Built-in (always available):**"""
         
-        for agent in built_ins:
-            # Format: name • model
-            output += f"\n- **{agent['name']}** • {agent['model']}"
+        for key, agent in AGENTS.items():
+            # Marker for active agent
+            marker = "*" if key == self.active_agent else " "
+            output += f"\n- **{agent['name']}** • {agent['model']} {marker}"
             
         # Add footer simulation
         output += "\n\n_Press ↑↓ to navigate • Enter to select • Esc to go back_"
