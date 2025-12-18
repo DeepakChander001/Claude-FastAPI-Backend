@@ -32,6 +32,13 @@ def get_anthropic_client(settings: Settings = Depends(get_settings)) -> Anthropi
     if settings.USE_MOCK_CLIENT:
         return MockAnthropicClient()
     
+    # OpenRouter Provider (DeepSeek)
+    if settings.OPENROUTER_API_KEY:
+        return RealAnthropicClient(
+            api_key=settings.OPENROUTER_API_KEY, 
+            base_url="https://openrouter.ai/api/v1"
+        )
+
     # Z.AI Provider
     if settings.ZAI_API_KEY:
         return RealAnthropicClient(

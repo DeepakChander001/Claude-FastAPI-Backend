@@ -10,3 +10,4 @@ gunicorn
 supabase
 curl_cffi
 fake-useragent
+openai

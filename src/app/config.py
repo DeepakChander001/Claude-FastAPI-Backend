@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     Application settings loaded from environment variables and optionally AWS Secrets Manager.
     """
     ZAI_API_KEY: Optional[str] = None # Z.AI API Key (Primary Provider)
+    OPENROUTER_API_KEY: Optional[str] = None # OpenRouter Key (DeepSeek)
     USE_MOCK_CLIENT: bool = True
     DEFAULT_MODEL: str = "GLM-4.6"
     
@@ -65,6 +66,8 @@ class Settings(BaseSettings):
             # Update settings if keys exist in the secret
             if "ZAI_API_KEY" in secrets:
                 self.ZAI_API_KEY = secrets["ZAI_API_KEY"]
+            if "OPENROUTER_API_KEY" in secrets:
+                self.OPENROUTER_API_KEY = secrets["OPENROUTER_API_KEY"]
             if "SUPABASE_URL" in secrets:
                 self.SUPABASE_URL = secrets["SUPABASE_URL"]
             if "SUPABASE_KEY" in secrets:

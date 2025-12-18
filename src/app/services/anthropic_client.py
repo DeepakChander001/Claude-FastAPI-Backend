@@ -1,5 +1,6 @@
 import uuid
 import anthropic
+import openai
 from typing import Dict, Any, Protocol, Iterator, Generator
 from src.app.config import Settings
 
@@ -35,24 +36,62 @@ class MockAnthropicClient:
 class RealAnthropicClient:
     """
     Real client wrapper for Anthropic API.
+    Supports both native Anthropic and OpenRouter (via OpenAI SDK).
     """
     def __init__(self, api_key: str, base_url: str = None):
         self.base_url = base_url
-        self.client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+        self.api_key = api_key
+        
+        # Detect Client Type
+        if base_url and "openrouter" in base_url:
+            self.client_type = "openai"
+            self.client = openai.OpenAI(
+                api_key=api_key, 
+                base_url=base_url
+            )
+        else:
+            self.client_type = "anthropic"
+            self.client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
 
     def _map_model(self, model: str) -> str:
         """
-        Map model names if using Z.AI.
+        Map model names for specific providers.
         """
+        if self.base_url and "openrouter" in self.base_url:
+            # Force DeepSeek V2/V3 (using V2 Coder model as requested safe V2 option)
+            # Or use 'deepseek/deepseek-chat' which is intelligent general purpose
+            return "deepseek/deepseek-coder"
+            
         if self.base_url and "z.ai" in self.base_url:
-            # Force GLM-4.6 as requested by user (Concurrency Limit 5)
-            # This handles claude-3-5-sonnet, claude-3-opus, etc.
             return "GLM-4.6"
             
         return model
 
     def generate_text(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Dict[str, Any]:
         target_model = self._map_model(model)
+        
+        # === OpenAI SDK (OpenRouter) ===
+        if self.client_type == "openai":
+            try:
+                response = self.client.chat.completions.create(
+                    model=target_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=max_tokens,
+                    temperature=temperature
+                )
+                
+                content = response.choices[0].message.content
+                return {
+                    "request_id": response.id,
+                    "output": content,
+                    "model": response.model,
+                    "usage": {"input_tokens": 0, "output_tokens": 0}, # OpenAI usage format differs
+                    "warnings": []
+                }
+            except Exception as e:
+                raise e
+
+        # === Anthropic SDK (Native/Z.AI) ===
         try:
             response = self.client.messages.create(
                 model=target_model,
@@ -73,11 +112,27 @@ class RealAnthropicClient:
             raise e
 
     def stream_generate(self, prompt: str, model: str, max_tokens: int, temperature: float) -> Generator[str, None, None]:
-        """
-        Stream tokens from Anthropic API.
-        Yields text chunks as they arrive.
-        """
         target_model = self._map_model(model)
+        
+        # === OpenAI SDK (OpenRouter) ===
+        if self.client_type == "openai":
+            try:
+                stream = self.client.chat.completions.create(
+                    model=target_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    stream=True
+                )
+                for chunk in stream:
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        yield content
+            except Exception as e:
+                yield f"\n\n[Error: {str(e)}]"
+            return
+
+        # === Anthropic SDK (Native/Z.AI) ===
         try:
             with self.client.messages.stream(
                 model=target_model,
