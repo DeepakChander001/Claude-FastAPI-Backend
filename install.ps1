@@ -46,4 +46,5 @@ Write-Host "To run it from ANYWHERE, add this folder to your PATH:"
 Write-Host "  $InstallDir" -ForegroundColor Yellow
 
 # Optional: Attempt to modify User PATH (Requires restart to take effect)
-# [Environment]::SetEnvironmentVariable("Path", $env:Path + ";$InstallDir", "User")
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$InstallDir", "User")
+Write-Host "NOTE: You may need to restart your terminal for the 'claude' command to work globally." -ForegroundColor Yellow
