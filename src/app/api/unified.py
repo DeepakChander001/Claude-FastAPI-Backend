@@ -347,9 +347,10 @@ async def unified_generate(
             status = "✓" if r.get("success") else "✗"
             output_parts.append(f"{status} {r.get('description', 'Unknown action')}")
             if r.get("output"):
-                output_parts.append(f"   Output: {r['output'][:200]}")
+                output_parts.append(f"   Output: {r['output']}")
             if r.get("error") and r["error"] != "Rejected by user":
                 output_parts.append(f"   Error: {r['error']}")
+
         
         return UnifiedResponse(
             request_id=request_id,
