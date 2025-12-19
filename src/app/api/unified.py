@@ -332,8 +332,52 @@ async def unified_generate(
         pending_actions = session.get("pending_actions", [])
         approvals = request.approvals or []
         
+        # Check if we have S3 project context
+        use_s3 = bool(request.project_name)
+        user_id = request.user_id or "default-user"
+        project_name = request.project_name or ""
+        
         # Execute approved tools
-        results = execute_approved_tools(approvals, pending_actions)
+        approved_ids = {a["tool_id"] for a in approvals if a.get("approved", False)}
+        results = []
+        
+        for action in pending_actions:
+            tool_id = action.get("tool_id")
+            
+            if tool_id in approved_ids:
+                tool_name = action.get("tool_type")
+                tool_args = action.get("parameters", {})
+                
+                if use_s3 and tool_name in ["read_file", "create_file", "list_directory"]:
+                    # Use S3 tool execution
+                    result = execute_s3_tool(tool_name, tool_args, project_name, user_id)
+                    results.append({
+                        "tool_id": tool_id,
+                        "description": action.get("description", ""),
+                        "success": result.get("success", False),
+                        "output": result.get("content") or result.get("message") or str(result.get("files", [])),
+                        "error": result.get("error")
+                    })
+                else:
+                    # Use local tool execution (fallback)
+                    executor = ToolExecutor(base_path=".")
+                    tool_type = ToolType(tool_name)
+                    result = executor.execute(tool_type, tool_args)
+                    results.append({
+                        "tool_id": tool_id,
+                        "description": action.get("description", ""),
+                        "success": result.success,
+                        "output": result.output,
+                        "error": result.error
+                    })
+            else:
+                results.append({
+                    "tool_id": tool_id,
+                    "description": action.get("description", ""),
+                    "success": False,
+                    "output": None,
+                    "error": "Rejected by user"
+                })
         
         # Clear session
         del _sessions[request.session_id]
@@ -343,6 +387,7 @@ async def unified_generate(
         total_count = len(results)
         
         output_parts = [f"Executed {success_count}/{total_count} actions:\n"]
+
         for r in results:
             status = "✓" if r.get("success") else "✗"
             output_parts.append(f"{status} {r.get('description', 'Unknown action')}")

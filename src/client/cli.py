@@ -8,11 +8,21 @@ import getpass
 import shutil
 from pathlib import Path
 
+# Enable command history with up/down arrows
+try:
+    import readline
+except ImportError:
+    try:
+        import pyreadline3 as readline
+    except ImportError:
+        pass  # No readline available, continue without history
+
 # Default Configuration
 DEFAULT_API_URL = "http://16.171.194.43:80/api/generate"
 BASE_API_URL = "http://16.171.194.43:80"
 CONFIG_DIR = Path.home() / ".nexus"
 CONFIG_FILE = CONFIG_DIR / "config.json"
+
 
 
 def print_markdown(text):
