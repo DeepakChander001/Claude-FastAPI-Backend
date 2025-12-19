@@ -6,6 +6,14 @@ pytest
 httpx
 pytest-mock
 anthropic
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+pytest
+httpx
+pytest-mock
+anthropic
 gunicorn
 supabase
 curl_cffi
@@ -13,3 +21,4 @@ fake-useragent
 openai
 google-auth
 google-auth-oauthlib
+boto3

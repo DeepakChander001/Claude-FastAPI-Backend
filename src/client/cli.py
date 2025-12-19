@@ -8,17 +8,12 @@ import getpass
 import shutil
 from pathlib import Path
 
-try:
-    import boto3
-    from botocore.exceptions import NoCredentialsError, PartialCredentialsError
-    HAS_BOTO3 = True
-except ImportError:
-    HAS_BOTO3 = False
-
 # Default Configuration
 DEFAULT_API_URL = "http://16.171.194.43:80/api/generate"
+BASE_API_URL = "http://16.171.194.43:80"
 CONFIG_DIR = Path.home() / ".nexus"
 CONFIG_FILE = CONFIG_DIR / "config.json"
+
 
 def print_markdown(text):
     """Simple markdown printer."""
@@ -30,6 +25,7 @@ def print_markdown(text):
     except ImportError:
         print(text)
 
+
 def load_config():
     if not CONFIG_FILE.exists():
         return {}
@@ -39,71 +35,19 @@ def load_config():
     except:
         return {}
 
+
 def save_config(config):
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
 
-def setup_aws_credentials():
-    print("\n\033[1;33m[!] AWS Credentials Required for S3 Sync\033[0m")
-    print("Nexus uses your private S3 bucket to sync this project with the backend.")
-    
-    access_key = input("AWS Access Key ID: ").strip()
-    secret_key = getpass.getpass("AWS Secret Access Key: ").strip()
-    bucket = input("S3 Bucket Name (e.g. my-nexus-projects): ").strip()
-    region = input("AWS Region (default: us-east-1): ").strip() or "us-east-1"
-    
-    config = load_config()
-    config["aws"] = {
-        "access_key": access_key,
-        "secret_key": secret_key,
-        "bucket": bucket,
-        "region": region
-    }
-    save_config(config)
-    print("\033[1;32m✅ Credentials saved to ~/.nexus/config.json\033[0m\n")
-    return config["aws"]
 
-def upload_project_to_s3(aws_config, project_path):
-    if not HAS_BOTO3:
-        print("\033[1;31mError: boto3 not installed. Cannot sync to S3.\033[0m")
-        return
-
-    s3 = boto3.client(
-        's3',
-        aws_access_key_id=aws_config["access_key"],
-        aws_secret_access_key=aws_config["secret_key"],
-        region_name=aws_config["region"]
-    )
-    
-    bucket = aws_config["bucket"]
-    folder_name = os.path.basename(os.path.abspath(project_path))
-    print(f"\033[1;34mSyncing '{folder_name}' to s3://{bucket}/projects/{folder_name}...\033[0m")
-
-    # Walk and Upload
-    try:
-        count = 0
-        for root, dirs, files in os.walk(project_path):
-            if ".git" in dirs: dirs.remove(".git") # Skip git
-            if "__pycache__" in dirs: dirs.remove("__pycache__")
-            if "venv" in dirs: dirs.remove("venv")
-            if ".nexus" in dirs: dirs.remove(".nexus")
-
-            for file in files:
-                local_path = os.path.join(root, file)
-                relative_path = os.path.relpath(local_path, project_path)
-                s3_key = f"projects/{folder_name}/{relative_path}".replace("\\", "/")
-                
-                # Simple optimization: Could check ETag/MD5 here, but for now force upload
-                s3.upload_file(local_path, bucket, s3_key)
-                count += 1
-                sys.stdout.write(f"\rUploaded {count} files...")
-        print(f"\n\033[1;32m✅ Upload Complete ({count} files).\033[0m")
-        return f"projects/{folder_name}"
-    
-    except Exception as e:
-        print(f"\n\033[1;31mUpload Failed: {str(e)}\033[0m")
-        return None
+def get_auth_headers(config):
+    """Get authorization headers if logged in."""
+    auth = config.get("auth")
+    if auth and auth.get("access_token"):
+        return {"Authorization": f"Bearer {auth['access_token']}"}
+    return {}
 
 
 def handle_login(api_url):
@@ -111,7 +55,7 @@ def handle_login(api_url):
     print("\033[1;33m[!] Initiating Login...\033[0m")
     try:
         # 1. Request Code
-        resp = requests.post(f"{api_url.replace('/api/generate', '')}/api/auth/device/code")
+        resp = requests.post(f"{BASE_API_URL}/api/auth/device/code")
         resp.raise_for_status()
         data = resp.json()
         
@@ -133,8 +77,10 @@ def handle_login(api_url):
             print(".", end="", flush=True)
             
             try:
-                poll_resp = requests.post(f"{api_url.replace('/api/generate', '')}/api/auth/device/poll", 
-                                        json={"device_code": device_code})
+                poll_resp = requests.post(
+                    f"{BASE_API_URL}/api/auth/device/poll",
+                    json={"device_code": device_code}
+                )
                 
                 if poll_resp.status_code == 200:
                     token_data = poll_resp.json()
@@ -158,13 +104,180 @@ def handle_login(api_url):
         print(f"\n\033[1;31mError during login: {e}\033[0m")
         return False
 
+
+def handle_init():
+    """Initialize current directory as S3 workspace."""
+    print("\033[1;36m[!] Initializing Project to S3 Cloud...\033[0m")
+    
+    config = load_config()
+    headers = get_auth_headers(config)
+    
+    current_dir = os.getcwd()
+    project_name = os.path.basename(current_dir)
+    
+    print(f"\033[1;34mProject: {project_name}\033[0m")
+    print(f"\033[1;34mPath: {current_dir}\033[0m")
+    
+    # Confirm upload
+    confirm = input("\n\033[1;33mUpload this folder to S3 cloud? [y/N]: \033[0m").lower()
+    if confirm != 'y':
+        print("Cancelled.")
+        return False
+    
+    print("\n\033[1;34mUploading to S3...\033[0m")
+    
+    try:
+        resp = requests.post(
+            f"{BASE_API_URL}/api/workspace/init",
+            json={
+                "project_name": project_name,
+                "local_path": current_dir
+            },
+            headers=headers,
+            timeout=300  # 5 minutes for large uploads
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        if data.get("success"):
+            print(f"\n\033[1;32m✅ Upload Complete!\033[0m")
+            print(f"   Files uploaded: {data['uploaded_count']}")
+            print(f"   S3 Path: {data['s3_prefix']}")
+            
+            # Save project info
+            config["active_project"] = {
+                "name": project_name,
+                "s3_prefix": data["s3_prefix"],
+                "local_path": current_dir
+            }
+            save_config(config)
+            return True
+        else:
+            print(f"\n\033[1;31m❌ Upload Failed: {data.get('message')}\033[0m")
+            return False
+            
+    except Exception as e:
+        print(f"\n\033[1;31mError: {e}\033[0m")
+        return False
+
+
+def handle_projects():
+    """List user's S3 projects."""
+    print("\033[1;36m[!] Loading Projects from S3...\033[0m")
+    
+    config = load_config()
+    headers = get_auth_headers(config)
+    
+    try:
+        resp = requests.get(
+            f"{BASE_API_URL}/api/workspace/projects",
+            headers=headers,
+            timeout=30
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        if data.get("success"):
+            projects = data.get("projects", [])
+            if not projects:
+                print("\n\033[1;33mNo projects found. Use /init to upload a project.\033[0m")
+                return
+            
+            print(f"\n\033[1;32m📁 Your Projects ({len(projects)}):\033[0m")
+            for i, proj in enumerate(projects, 1):
+                active = ""
+                if config.get("active_project", {}).get("name") == proj:
+                    active = " \033[1;32m← active\033[0m"
+                print(f"   {i}. {proj}{active}")
+            
+            print("\n\033[1;33mTo switch: /switch <project_name>\033[0m")
+        else:
+            print(f"\n\033[1;31mError: {data.get('error')}\033[0m")
+            
+    except Exception as e:
+        print(f"\n\033[1;31mError: {e}\033[0m")
+
+
+def handle_status():
+    """Get current project workspace status."""
+    config = load_config()
+    active_project = config.get("active_project")
+    
+    if not active_project:
+        print("\033[1;33mNo active project. Use /init to upload a project.\033[0m")
+        return
+    
+    headers = get_auth_headers(config)
+    project_name = active_project["name"]
+    
+    print(f"\033[1;36m[!] Workspace Status for: {project_name}\033[0m")
+    
+    try:
+        resp = requests.get(
+            f"{BASE_API_URL}/api/workspace/status?project_name={project_name}",
+            headers=headers,
+            timeout=30
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        if data.get("success"):
+            print(f"\n\033[1;32m📊 Project Status:\033[0m")
+            print(f"   Name: {data['project_name']}")
+            print(f"   Total Files: {data['total_files']}")
+            print(f"   Last Modified: {data.get('last_modified', 'N/A')}")
+            print(f"   S3 Bucket: {data['s3_bucket']}")
+            print(f"   S3 Path: {data['s3_prefix']}")
+        else:
+            print(f"\n\033[1;31mError: {data.get('error')}\033[0m")
+            
+    except Exception as e:
+        print(f"\n\033[1;31mError: {e}\033[0m")
+
+
+def handle_ls(path=""):
+    """List files in S3 project directory."""
+    config = load_config()
+    active_project = config.get("active_project")
+    
+    if not active_project:
+        print("\033[1;33mNo active project. Use /init first.\033[0m")
+        return
+    
+    headers = get_auth_headers(config)
+    project_name = active_project["name"]
+    
+    try:
+        resp = requests.get(
+            f"{BASE_API_URL}/api/workspace/ls?project_name={project_name}&path={path}",
+            headers=headers,
+            timeout=30
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        
+        if data.get("success"):
+            objects = data.get("objects", [])
+            print(f"\n\033[1;32m📁 S3 Files ({len(objects)}):\033[0m")
+            for obj in objects[:20]:  # Limit display
+                size_kb = obj['size'] / 1024
+                print(f"   {obj['path']} ({size_kb:.1f} KB)")
+            if len(objects) > 20:
+                print(f"   ... and {len(objects) - 20} more files")
+        else:
+            print(f"\n\033[1;31mError: {data.get('error')}\033[0m")
+            
+    except Exception as e:
+        print(f"\n\033[1;31mError: {e}\033[0m")
+
+
 def main():
     print("\033[1;36mNexus CLI (Powered by Claude-FastAPI-Backend)\033[0m")
     
     # 1. Init Sequence
     config = load_config()
-    aws_config = config.get("aws")
     auth_config = config.get("auth")
+    active_project = config.get("active_project")
     
     api_url = os.environ.get("CLAUDE_API_URL", DEFAULT_API_URL)
     
@@ -172,53 +285,77 @@ def main():
     if not auth_config:
         print("\033[1;33m[!] You are not logged in.\033[0m")
         print("Type '/login' to authenticate via Gmail.\n")
-
-    # Ask about Project Context
-    # ... (Keep existing S3 logic, simplified for brevity in this edit) ...
-    # For now, let's keep the project check but make it optional or robust
+    
+    # Show Active Project
+    if active_project:
+        print(f"\033[1;34m☁ Cloud Project: {active_project['name']}\033[0m")
     
     print(f"\nCurrent Directory: {os.getcwd()}")
-    # ... S3 Logic Redacted for this specific tool call to focus on Auth, 
-    # but in reality we keep it. I will append the function above.
-    
-    # ... [Rest of Main Loop] ...
     
     while True:
         try:
             # 2. Loop
             prompt_text = "\033[1;32mNexus> \033[0m"
             if auth_config: 
-                 prompt_text = f"\033[1;32mNexus({auth_config['email'][:5]}..)> \033[0m"
+                email_short = auth_config['email'][:5] if auth_config.get('email') else "user"
+                prompt_text = f"\033[1;32mNexus({email_short}..)\033[0m"
+                if active_project:
+                    prompt_text = f"\033[1;32mNexus({email_short}..☁)\033[0m"
+                prompt_text += "> "
             
             prompt = input(prompt_text).strip()
             
-            if not prompt: continue
-            if prompt.lower() in ["/exit", "/quit"]:
+            if not prompt:
+                continue
+            if prompt.lower() in ["/exit", "/quit", "/q"]:
                 print("Goodbye!")
                 break
                 
+            # Command Handlers
             if prompt.lower() == "/login":
                 if handle_login(api_url):
                     auth_config = load_config().get("auth")
                 continue
             
-            # ... [Rest of Request Logic] ...
+            if prompt.lower() == "/init":
+                handle_init()
+                active_project = load_config().get("active_project")
+                continue
+            
+            if prompt.lower() == "/projects":
+                handle_projects()
+                continue
+            
+            if prompt.lower() == "/status":
+                handle_status()
+                continue
+            
+            if prompt.lower().startswith("/ls"):
+                parts = prompt.split(maxsplit=1)
+                path = parts[1] if len(parts) > 1 else ""
+                handle_ls(path)
+                continue
+            
+            if prompt.lower() == "/help":
+                print("\n\033[1;32mAvailable Commands:\033[0m")
+                print("  /login    - Login with Google")
+                print("  /init     - Upload current folder to S3 cloud")
+                print("  /projects - List your cloud projects")
+                print("  /status   - Show active project status")
+                print("  /ls       - List files in cloud project")
+                print("  /exit     - Exit CLI")
+                print("\nOr just type a question to chat with AI.\n")
+                continue
+            
+            # Regular AI Prompt
             payload = {
                 "prompt": prompt,
                 "stream": False,
             }
             
-            if auth_config:
-                # Pass Token in Headers eventually, specifically for S3 or Auth routes.
-                # For /api/generate, we might pass it if we update unified.py
-                pass 
-
-            # ...
-            
-            # ... (Rest of logic same as before)
-            # Send Request
             try:
-                response = requests.post(api_url, json=payload, timeout=60)
+                headers = get_auth_headers(config)
+                response = requests.post(api_url, json=payload, headers=headers, timeout=60)
                 response.raise_for_status()
                 data = response.json()
             except Exception as e:
@@ -249,7 +386,7 @@ def main():
                     }
                     try:
                         print("\033[1;34mExecuting...\033[0m")
-                        res2 = requests.post(api_url, json=confirm_payload, timeout=120)
+                        res2 = requests.post(api_url, json=confirm_payload, headers=headers, timeout=120)
                         data2 = res2.json()
                         print_markdown(data2.get("output", ""))
                     except Exception as e:
@@ -262,6 +399,7 @@ def main():
             break
         except EOFError:
             break
+
 
 if __name__ == "__main__":
     main()
