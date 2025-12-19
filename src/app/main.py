@@ -9,7 +9,7 @@ Single endpoint /api/generate handles all functionality:
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.app.api import health, chat, tools, agents, workflow, auth, web_auth
+from src.app.api import health, chat, tools, agents, workflow, auth
 
 app = FastAPI(title="Claude Proxy Backend")
 
@@ -24,8 +24,7 @@ app.add_middleware(
 
 # Include Routers
 app.include_router(health.router, tags=["Health"])
-app.include_router(auth.router, prefix="/api/auth", tags=["Auth (Device Flow)"]) # Deprecated but kept for reference
-app.include_router(web_auth.router, prefix="/api/auth", tags=["Auth (Web Flow)"]) # New Web Flow
+app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(tools.router, prefix="/api/tools", tags=["Tools"])
 
