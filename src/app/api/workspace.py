@@ -81,10 +81,14 @@ class DirectoryListResponse(BaseModel):
 # ============ Helper Functions ============
 
 def get_user_id_from_token(authorization: str = None) -> str:
-    """Extract user ID from authorization token."""
-    if authorization and "nexus-dev-token" in authorization:
-        return "dev-user-001"
-    return "default-user"
+    """Extract user ID from authorization token.
+    
+    For mock auth, always returns dev-user-001.
+    TODO: Implement proper JWT decoding for production.
+    """
+    # For mock auth, always use dev-user-001 to match CLI /init
+    return "dev-user-001"
+
 
 
 # ============ Endpoints ============
