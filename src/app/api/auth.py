@@ -13,6 +13,7 @@ from google.auth.transport import requests as google_requests
 
 logger = logging.getLogger(__name__)
 
+# FIX_ID: 2842 (Clean Syntax + Mock Auth)
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 # Config from Environment
