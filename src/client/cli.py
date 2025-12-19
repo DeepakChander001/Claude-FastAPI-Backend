@@ -106,7 +106,7 @@ def handle_login(api_url):
 
 
 def handle_init():
-    """Initialize current directory as S3 workspace."""
+    """Initialize current directory as S3 workspace by uploading files."""
     print("\033[1;36m[!] Initializing Project to S3 Cloud...\033[0m")
     
     config = load_config()
@@ -124,14 +124,44 @@ def handle_init():
         print("Cancelled.")
         return False
     
-    print("\n\033[1;34mUploading to S3...\033[0m")
+    print("\n\033[1;34mScanning files...\033[0m")
+    
+    # Collect files to upload (exclude common patterns)
+    exclude_patterns = ['.git', '__pycache__', 'node_modules', '.env', 'venv', '.venv', '.nexus']
+    files_to_upload = []
+    
+    for root, dirs, files in os.walk(current_dir):
+        # Skip excluded directories
+        dirs[:] = [d for d in dirs if d not in exclude_patterns]
+        
+        for file in files:
+            file_path = os.path.join(root, file)
+            relative_path = os.path.relpath(file_path, current_dir).replace('\\', '/')
+            
+            # Skip binary files and very large files
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read()
+                    # Skip files larger than 1MB
+                    if len(content) > 1024 * 1024:
+                        print(f"   Skipping (too large): {relative_path}")
+                        continue
+                    files_to_upload.append({
+                        "path": relative_path,
+                        "content": content
+                    })
+            except Exception as e:
+                print(f"   Skipping (binary/error): {relative_path}")
+                continue
+    
+    print(f"\033[1;34mUploading {len(files_to_upload)} files to S3...\033[0m")
     
     try:
         resp = requests.post(
             f"{BASE_API_URL}/api/workspace/init",
             json={
                 "project_name": project_name,
-                "local_path": current_dir
+                "files": files_to_upload
             },
             headers=headers,
             timeout=300  # 5 minutes for large uploads
@@ -158,6 +188,8 @@ def handle_init():
             
     except Exception as e:
         print(f"\n\033[1;31mError: {e}\033[0m")
+        return False
+
         return False
 
 

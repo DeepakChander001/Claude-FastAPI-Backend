@@ -25,10 +25,16 @@ router = APIRouter(tags=["workspace"])
 
 # ============ Request/Response Models ============
 
+class FileUpload(BaseModel):
+    """Single file to upload."""
+    path: str = Field(..., description="Relative path within the project")
+    content: str = Field(..., description="File content (base64 or text)")
+
+
 class InitProjectRequest(BaseModel):
-    """Request to initialize a project in S3."""
-    project_name: str = Field(..., description="Name of the project (directory name)")
-    local_path: str = Field(..., description="Local path to the project directory")
+    """Request to initialize a project in S3 with files."""
+    project_name: str = Field(..., description="Name of the project")
+    files: List[FileUpload] = Field(..., description="List of files to upload")
 
 
 class InitProjectResponse(BaseModel):
@@ -75,15 +81,9 @@ class DirectoryListResponse(BaseModel):
 # ============ Helper Functions ============
 
 def get_user_id_from_token(authorization: str = None) -> str:
-    """Extract user ID from authorization token.
-    
-    For now, returns a mock user ID. In production, decode JWT.
-    """
-    # TODO: Implement proper JWT decoding
-    # For mock auth, extract from token format: "nexus-dev-token-123"
+    """Extract user ID from authorization token."""
     if authorization and "nexus-dev-token" in authorization:
         return "dev-user-001"
-    # Default fallback for testing
     return "default-user"
 
 
@@ -95,9 +95,9 @@ async def init_project(
     authorization: str = Header(None)
 ):
     """
-    Initialize a new project by uploading local directory to S3.
+    Initialize a new project by receiving files from CLI and uploading to S3.
     
-    This is called when user runs `/init` in CLI for the first time.
+    The CLI sends all file contents directly - no local path access needed.
     """
     s3 = get_s3_service()
     if not s3:
@@ -105,35 +105,39 @@ async def init_project(
     
     user_id = get_user_id_from_token(authorization)
     
-    # Check if local path exists (validated on client side, but double-check)
-    local_path = Path(request.local_path)
-    if not local_path.exists():
-        raise HTTPException(status_code=400, detail=f"Path does not exist: {request.local_path}")
+    logger.info(f"Initializing project: {request.project_name} for user: {user_id} with {len(request.files)} files")
     
-    logger.info(f"Initializing project: {request.project_name} for user: {user_id}")
+    uploaded_count = 0
+    failed_count = 0
     
-    # Upload directory to S3
-    result = s3.upload_directory(
-        local_dir=str(local_path),
-        user_id=user_id,
-        project_name=request.project_name
-    )
+    for file in request.files:
+        result = s3.upload_content(
+            content=file.content,
+            user_id=user_id,
+            project_name=request.project_name,
+            relative_path=file.path
+        )
+        if result["success"]:
+            uploaded_count += 1
+        else:
+            failed_count += 1
+            logger.error(f"Failed to upload {file.path}: {result.get('error')}")
+    
+    s3_prefix = s3._get_user_prefix(user_id, request.project_name)
     
     return InitProjectResponse(
-        success=result["success"],
+        success=failed_count == 0,
         project_name=request.project_name,
-        s3_prefix=result["s3_prefix"],
-        uploaded_count=result["uploaded_count"],
-        failed_count=result["failed_count"],
-        message=f"Uploaded {result['uploaded_count']} files to S3" if result["success"] else f"Failed to upload some files"
+        s3_prefix=s3_prefix,
+        uploaded_count=uploaded_count,
+        failed_count=failed_count,
+        message=f"Uploaded {uploaded_count} files to S3" if failed_count == 0 else f"Uploaded {uploaded_count}, failed {failed_count}"
     )
 
 
 @router.get("/projects", response_model=ProjectListResponse)
 async def list_projects(authorization: str = Header(None)):
-    """
-    List all projects for the current user.
-    """
+    """List all projects for the current user."""
     s3 = get_s3_service()
     if not s3:
         raise HTTPException(status_code=500, detail="S3 service not configured")
@@ -153,9 +157,7 @@ async def sync_file(
     request: SyncFileRequest,
     authorization: str = Header(None)
 ):
-    """
-    Sync a file change to S3 (create, update, or delete).
-    """
+    """Sync a file change to S3 (create, update, or delete)."""
     s3 = get_s3_service()
     if not s3:
         raise HTTPException(status_code=500, detail="S3 service not configured")
@@ -187,9 +189,7 @@ async def get_file(
     path: str,
     authorization: str = Header(None)
 ):
-    """
-    Read a file from S3.
-    """
+    """Read a file from S3."""
     s3 = get_s3_service()
     if not s3:
         raise HTTPException(status_code=500, detail="S3 service not configured")
@@ -211,9 +211,7 @@ async def list_directory(
     path: str = "",
     authorization: str = Header(None)
 ):
-    """
-    List files in a directory from S3.
-    """
+    """List files in a directory from S3."""
     s3 = get_s3_service()
     if not s3:
         raise HTTPException(status_code=500, detail="S3 service not configured")
@@ -234,9 +232,7 @@ async def workspace_status(
     project_name: str,
     authorization: str = Header(None)
 ):
-    """
-    Get workspace status - total files, last sync time, etc.
-    """
+    """Get workspace status - total files, last sync time, etc."""
     s3 = get_s3_service()
     if not s3:
         raise HTTPException(status_code=500, detail="S3 service not configured")
