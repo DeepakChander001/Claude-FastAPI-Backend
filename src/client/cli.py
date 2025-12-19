@@ -106,7 +106,7 @@ def handle_login(api_url):
 
 
 def handle_init():
-    """Initialize current directory as S3 workspace by uploading files."""
+    """Initialize current directory as S3 workspace by uploading files in batches."""
     print("\033[1;36m[!] Initializing Project to S3 Cloud...\033[0m")
     
     config = load_config()
@@ -127,7 +127,7 @@ def handle_init():
     print("\n\033[1;34mScanning files...\033[0m")
     
     # Collect files to upload (exclude common patterns)
-    exclude_patterns = ['.git', '__pycache__', 'node_modules', '.env', 'venv', '.venv', '.nexus']
+    exclude_patterns = ['.git', '__pycache__', 'node_modules', '.env', 'venv', '.venv', '.nexus', 'temp_research']
     files_to_upload = []
     
     for root, dirs, files in os.walk(current_dir):
@@ -140,56 +140,72 @@ def handle_init():
             
             # Skip binary files and very large files
             try:
+                # Check file size first
+                file_size = os.path.getsize(file_path)
+                if file_size > 512 * 1024:  # Skip files > 512KB
+                    print(f"   Skipping (large): {relative_path}")
+                    continue
+                
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
-                    # Skip files larger than 1MB
-                    if len(content) > 1024 * 1024:
-                        print(f"   Skipping (too large): {relative_path}")
-                        continue
                     files_to_upload.append({
                         "path": relative_path,
                         "content": content
                     })
             except Exception as e:
-                print(f"   Skipping (binary/error): {relative_path}")
-                continue
+                continue  # Silently skip binary files
     
-    print(f"\033[1;34mUploading {len(files_to_upload)} files to S3...\033[0m")
+    total_files = len(files_to_upload)
+    print(f"\033[1;34mUploading {total_files} files to S3 in batches...\033[0m")
+    
+    # Batch upload (50 files per batch)
+    BATCH_SIZE = 50
+    total_uploaded = 0
+    total_failed = 0
+    s3_prefix = ""
     
     try:
-        resp = requests.post(
-            f"{BASE_API_URL}/api/workspace/init",
-            json={
-                "project_name": project_name,
-                "files": files_to_upload
-            },
-            headers=headers,
-            timeout=300  # 5 minutes for large uploads
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        
-        if data.get("success"):
-            print(f"\n\033[1;32m✅ Upload Complete!\033[0m")
-            print(f"   Files uploaded: {data['uploaded_count']}")
-            print(f"   S3 Path: {data['s3_prefix']}")
+        for i in range(0, total_files, BATCH_SIZE):
+            batch = files_to_upload[i:i + BATCH_SIZE]
+            batch_num = (i // BATCH_SIZE) + 1
+            total_batches = (total_files + BATCH_SIZE - 1) // BATCH_SIZE
             
-            # Save project info
-            config["active_project"] = {
-                "name": project_name,
-                "s3_prefix": data["s3_prefix"],
-                "local_path": current_dir
-            }
-            save_config(config)
-            return True
-        else:
-            print(f"\n\033[1;31m❌ Upload Failed: {data.get('message')}\033[0m")
-            return False
+            sys.stdout.write(f"\r   Batch {batch_num}/{total_batches} ({len(batch)} files)...")
+            sys.stdout.flush()
+            
+            resp = requests.post(
+                f"{BASE_API_URL}/api/workspace/init",
+                json={
+                    "project_name": project_name,
+                    "files": batch
+                },
+                headers=headers,
+                timeout=60  # 1 minute per batch
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            
+            total_uploaded += data.get("uploaded_count", 0)
+            total_failed += data.get("failed_count", 0)
+            s3_prefix = data.get("s3_prefix", s3_prefix)
+        
+        print(f"\n\n\033[1;32m✅ Upload Complete!\033[0m")
+        print(f"   Files uploaded: {total_uploaded}")
+        if total_failed > 0:
+            print(f"   Files failed: {total_failed}")
+        print(f"   S3 Path: {s3_prefix}")
+        
+        # Save project info
+        config["active_project"] = {
+            "name": project_name,
+            "s3_prefix": s3_prefix,
+            "local_path": current_dir
+        }
+        save_config(config)
+        return True
             
     except Exception as e:
         print(f"\n\033[1;31mError: {e}\033[0m")
-        return False
-
         return False
 
 
