@@ -42,23 +42,27 @@ async def request_device_code():
     """Step 1: Client requests a code from Google (Proxy)."""
     
     # [DEV MODE] Logic: If keys are missing or look like 'mock', we short-circuit.
-    # We check CLIENT_ID safety before usage.
-    
     use_mock = False
-    if not CLIENT_ID or "okihhu" in str(CLIENT_ID) or "mock" in str(CLIENT_ID).lower():
+    
+    # Check for empty or invalid keys
+    if not CLIENT_ID:
         use_mock = True
-    elif "apps.googleusercontent.com" not in CLIENT_ID:
+    elif "okihhu" in str(CLIENT_ID):
+        use_mock = True
+    elif "mock" in str(CLIENT_ID).lower():
+        use_mock = True
+    elif "apps.googleusercontent.com" not in str(CLIENT_ID):
         use_mock = True
 
     if use_mock:
-         logging.info("Using MOCK Auth (Dev Mode) due to invalid/missing credentials")
-         return DeviceCodeResponse(
-             device_code="mock-device-code",
-             user_code="DEV-MODE",
-             verification_uri="http://16.171.194.43/mock-activate", # Just a placeholder
-             expires_in=1800,
-             interval=1
-         )
+        logging.info("Using MOCK Auth (Dev Mode) due to invalid/missing credentials")
+        return DeviceCodeResponse(
+            device_code="mock-device-code",
+            user_code="DEV-MODE",
+            verification_uri="http://16.171.194.43/mock-activate",
+            expires_in=1800,
+            interval=1
+        )
 
     try:
         payload = {
@@ -69,16 +73,16 @@ async def request_device_code():
         
         # If Google rejects it (invalid_client), FALLBACK to Mock for now?
         if resp.status_code == 400 or resp.status_code == 401:
-             error_data = resp.json().get("error", "")
-             if error_data == "invalid_client" or error_data == "deleted_client":
-                 logging.warning(f"Google Credentials Invalid ({error_data}). Falling back to MOCK mode.")
-                 return DeviceCodeResponse(
-                     device_code="mock-device-code",
-                     user_code="DEV-MODE",
-                     verification_uri="http://16.171.194.43/mock-activate",
-                     expires_in=1800,
-                     interval=1
-                 )
+            error_data = resp.json().get("error", "")
+            if error_data == "invalid_client" or error_data == "deleted_client":
+                logging.warning(f"Google Credentials Invalid ({error_data}). Falling back to MOCK mode.")
+                return DeviceCodeResponse(
+                    device_code="mock-device-code",
+                    user_code="DEV-MODE",
+                    verification_uri="http://16.171.194.43/mock-activate",
+                    expires_in=1800,
+                    interval=1
+                )
         
         resp.raise_for_status()
         data = resp.json()
@@ -94,11 +98,11 @@ async def request_device_code():
         logger.error(f"Google Device Code Error: {e}")
         # Make it robust: If Google fails/timeouts, let them in.
         return DeviceCodeResponse(
-             device_code="mock-device-code",
-             user_code="DEV-MODE",
-             verification_uri="http://16.171.194.43/mock-access", 
-             expires_in=300, 
-             interval=1
+            device_code="mock-device-code",
+            user_code="DEV-MODE",
+            verification_uri="http://16.171.194.43/mock-access", 
+            expires_in=300, 
+            interval=1
         )
 
 @router.post("/device/poll")
@@ -107,7 +111,6 @@ async def poll_token(req: PollRequest):
     
     # [DEV MODE] Mock Handling
     if req.device_code == "mock-device-code":
-        # Return Success Immediately
         return {
             "access_token": "nexus-dev-token-123",
             "token_type": "bearer",
@@ -156,15 +159,12 @@ async def poll_token(req: PollRequest):
         # Upsert User in Supabase
         from src.app.services.user_service import UserService
         user_service = UserService()
-        result = user_service.get_or_create_user(email) # TODO: Pass name/picture if service supports it
+        result = user_service.get_or_create_user(email) 
 
         real_user = result["user"]
 
-        # Return Session Token (For now, mimicking the ID token or creating a custom one)
-        # We can return the Google ID Token or a custom JWT. 
-        # For parity with existing CLI logic, we return access_token.
         return {
-            "access_token": f"nexus-v1-{real_user['id']}", # Keep simple for now
+            "access_token": f"nexus-v1-{real_user['id']}", 
             "token_type": "bearer",
             "expires_in": 3600,
             "user_id": real_user["id"],
@@ -176,7 +176,6 @@ async def poll_token(req: PollRequest):
         raise
     except Exception as e:
         logger.error(f"Google Token Poll Error: {e}")
-        # Return 400 for pending to keep polling, unless it's a real crash
         if "authorization_pending" in str(e):
              raise HTTPException(status_code=400, detail="authorization_pending")
         raise HTTPException(status_code=500, detail=f"Auth Error: {str(e)}")
