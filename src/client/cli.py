@@ -395,11 +395,16 @@ def main():
                 print("\nOr just type a question to chat with AI.\n")
                 continue
             
-            # Regular AI Prompt
+            # Regular AI Prompt - include S3 project context if active
             payload = {
                 "prompt": prompt,
                 "stream": False,
             }
+            
+            # Add S3 project context if user has an active project
+            if active_project:
+                payload["project_name"] = active_project.get("name")
+                payload["user_id"] = auth_config.get("user_id", "default-user") if auth_config else "default-user"
             
             try:
                 headers = get_auth_headers(config)

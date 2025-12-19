@@ -26,6 +26,7 @@ from src.app.db import SupabaseClientWrapper
 from src.app.tools import ToolExecutor, ToolType, TOOL_DEFINITIONS
 from src.app.services.slash_commands import SlashCommandService
 from src.app.services.agent_prompts import get_agent_config
+from src.app.services.s3_service import get_s3_service
 import json
 
 # Global Active Agent State (In-memory for simplicity)
@@ -75,6 +76,20 @@ NATIVE_TOOLS = [
                 "required": ["path"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read the contents of a file. Use this when user asks about file content or wants to see what's in a file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "File path to read (e.g. .env.example, src/main.py)"}
+                },
+                "required": ["path"]
+            }
+        }
     }
 ]
 
@@ -99,10 +114,15 @@ class UnifiedRequest(BaseModel):
     temperature: float = Field(0.7, description="Sampling temperature")
     stream: bool = Field(True, description="Enable streaming response")
     
+    # S3 Workspace Context
+    project_name: Optional[str] = Field(None, description="Active S3 project name")
+    user_id: Optional[str] = Field(None, description="User ID for S3 workspace")
+    
     # For confirmation flow
     session_id: Optional[str] = Field(None, description="Session ID for continuing a conversation")
     confirm: Optional[bool] = Field(None, description="Set to true to confirm pending actions")
     approvals: Optional[List[Dict[str, Any]]] = Field(None, description="Approval decisions for pending actions")
+
 
 
 class UnifiedResponse(BaseModel):
@@ -174,7 +194,41 @@ def execute_approved_tools(
     return results
 
 
-    return results
+def execute_s3_tool(
+    tool_name: str,
+    tool_args: Dict[str, Any],
+    project_name: str,
+    user_id: str
+) -> Dict[str, Any]:
+    """Execute a tool that operates on S3 files."""
+    s3 = get_s3_service()
+    if not s3:
+        return {"success": False, "error": "S3 service not configured"}
+    
+    if tool_name == "read_file":
+        path = tool_args.get("path", "")
+        result = s3.download_file(user_id, project_name, path)
+        if result["success"]:
+            return {"success": True, "content": result["content"], "path": path}
+        return {"success": False, "error": result.get("error", "File not found")}
+    
+    elif tool_name == "create_file":
+        path = tool_args.get("path", "")
+        content = tool_args.get("content", "")
+        result = s3.upload_content(content, user_id, project_name, path)
+        if result["success"]:
+            return {"success": True, "message": f"File created: {path}", "s3_key": result["s3_key"]}
+        return {"success": False, "error": result.get("error", "Failed to create file")}
+    
+    elif tool_name == "list_directory":
+        path = tool_args.get("path", "")
+        result = s3.list_objects(user_id, project_name, path)
+        if result["success"]:
+            files = [obj["path"] for obj in result.get("objects", [])]
+            return {"success": True, "files": files, "count": len(files)}
+        return {"success": False, "error": result.get("error", "Failed to list directory")}
+    
+    return {"success": False, "error": f"Unknown tool: {tool_name}"}
 
 
 def yield_text_chunks(text: str, chunk_size: int = 20):
