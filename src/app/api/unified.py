@@ -182,7 +182,7 @@ def yield_text_chunks(text: str, chunk_size: int = 20):
     for i in range(0, len(text), chunk_size):
         yield text[i:i + chunk_size]
 
-@router.post("/api/generate", response_model=None)
+@router.post("/generate", response_model=None)
 async def unified_generate(
     request: UnifiedRequest,
     settings: Settings = Depends(get_settings),
