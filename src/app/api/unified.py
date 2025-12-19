@@ -237,7 +237,7 @@ async def unified_generate(
     
     log_entry = db.create_request(
         prompt=prompt_text[:2000], 
-        model=ACTIVE_MODEL_ID,
+        model=model,
         stream=request.stream,
         user_id=user_id
     )
