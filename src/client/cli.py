@@ -107,50 +107,70 @@ def upload_project_to_s3(aws_config, project_path):
 
 
 def handle_login(api_url):
-    """Effectuate Device Authorization Flow."""
+    """Effectuate Web-Based Authorization Flow."""
     print("\033[1;33m[!] Initiating Login...\033[0m")
     try:
-        # 1. Request Code
-        resp = requests.post(f"{api_url.replace('/api/generate', '')}/api/auth/device/code")
-        resp.raise_for_status()
-        data = resp.json()
+        # 1. Request Session Init from Server
+        init_url = f"{api_url.replace('/api/generate', '')}/api/auth/init"
+        try:
+            resp = requests.post(init_url, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as e:
+            print(f"\033[1;31mError checking auth status: {e}\033[0m")
+            return False
+
+        session_id = data["session_id"]
+        auth_url = data["auth_url"]
         
-        device_code = data["device_code"]
-        user_code = data["user_code"]
-        verification_uri = data["verification_uri"]
-        interval = data["interval"]
+        print(f"\n\033[1;34mOpening browser for authentication...\033[0m")
+        print(f"URL: {auth_url}\n")
         
-        print("\n\033[1;36m=========================================")
-        print(f" Please visit: \033[1;34m{verification_uri}\033[1;36m")
-        print(f" Enter Code:   \033[1;32m{user_code}\033[1;36m")
-        print("=========================================\033[0m\n")
+        # 2. Open Browser
+        import webbrowser
+        webbrowser.open(auth_url)
         
-        print("Waiting for authentication...", end="", flush=True)
+        print("Waiting for authentication in browser...", end="", flush=True)
         
-        # 2. Poll
+        # 3. Poll Server for Completion
+        poll_url = f"{api_url.replace('/api/generate', '')}/api/auth/poll"
+        
         while True:
-            time.sleep(interval)
+            time.sleep(2) # Poll every 2s
             print(".", end="", flush=True)
             
             try:
-                poll_resp = requests.post(f"{api_url.replace('/api/generate', '')}/api/auth/device/poll", 
-                                        json={"device_code": device_code})
+                poll_resp = requests.get(poll_url, params={"session_id": session_id}, timeout=5)
                 
                 if poll_resp.status_code == 200:
-                    token_data = poll_resp.json()
+                    status_data = poll_resp.json()
                     
-                    # Save Token
-                    config = load_config()
-                    config["auth"] = token_data
-                    save_config(config)
-                    
-                    print(f"\n\n\033[1;32m✅ Login Successful! (User: {token_data['email']})\033[0m")
-                    return True
-                    
-                if poll_resp.status_code == 403:
-                    print("\n\033[1;31m❌ Access Denied.\033[0m")
-                    return False
-                    
+                    if status_data["status"] == "complete":
+                        # Success!
+                        token_data = status_data["google_token"]
+                        user_info = status_data["user"]
+                        
+                        # Save Token
+                        config = load_config()
+                        config["auth"] = {
+                            "access_token": status_data["access_token"],
+                            "email": user_info["email"],
+                            "name": user_info.get("name"),
+                            "picture": user_info.get("picture")
+                        }
+                        save_config(config)
+                        
+                        print(f"\n\n\033[1;32m✅ Login Successful! (User: {user_info['email']})\033[0m")
+                        return True
+                        
+                    elif status_data["status"] == "error":
+                        print("\n\033[1;31m❌ Login Failed on Server.\033[0m")
+                        return False
+                        
+                elif poll_resp.status_code == 404:
+                     print("\n\033[1;31m❌ Session Expired.\033[0m")
+                     return False
+                     
             except Exception:
                 pass
                 

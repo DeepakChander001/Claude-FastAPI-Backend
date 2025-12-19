@@ -8,24 +8,26 @@ Single endpoint /api/generate handles all functionality:
 """
 
 from fastapi import FastAPI
-from src.app.api.unified import router as unified_router
-from src.app.api.agentic import router as agentic_router
-from src.app.api.auth import router as auth_router
+from fastapi.middleware.cors import CORSMiddleware
+from src.app.api import health, chat, tools, agents, workflow, auth, web_auth
 
-app = FastAPI(
-    title="Claude Proxy API",
-    description="Unified AI endpoint with tool use and confirmation",
-    version="2.0.0"
+app = FastAPI(title="Claude Proxy Backend")
+
+# CORS Configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for dev; restrict in prod
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Include the unified router (main endpoint: /api/generate)
-app.include_router(unified_router)
-
-# Include Authentication Router
-app.include_router(auth_router)
-
-# Keep agentic router for backward compatibility
-app.include_router(agentic_router)
+# Include Routers
+app.include_router(health.router, tags=["Health"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Auth (Device Flow)"]) # Deprecated but kept for reference
+app.include_router(web_auth.router, prefix="/api/auth", tags=["Auth (Web Flow)"]) # New Web Flow
+app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
+app.include_router(tools.router, prefix="/api/tools", tags=["Tools"])
 
 
 @app.get("/health")
