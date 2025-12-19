@@ -131,4 +131,3 @@ async def poll_token(req: PollRequest):
         raise HTTPException(status_code=500, detail=f"Auth Error: {str(e)}")
 
 # Remove Mock Endpoints (activate/approve) as Google handles the UI now
-
